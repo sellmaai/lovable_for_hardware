@@ -6,6 +6,9 @@ app/.env
 # Dependencies
 node_modules/
 
+# Local embedded Postgres (PGlite) data
+app/.data/
+
 # Vercel
 .vercel/
 

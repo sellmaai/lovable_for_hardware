@@ -9,5 +9,10 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "nodemailer": "^9.0.3",
+    "pg": "^8.22.0"
   }
 }

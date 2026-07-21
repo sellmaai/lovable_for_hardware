@@ -764,14 +764,33 @@ const UserMenu = () => {
         const BuildOrderModal = ({ isOpen, onClose, currentOutput }) => {
             const [formData, setFormData] = useState({ from_name: '', customer_email: '', customer_phone: '', customer_location: '', preferred_contact: 'email', quantity: 1, special_requests: '' });
             const [isSubmitting, setIsSubmitting] = useState(false); const [submitSuccess, setSubmitSuccess] = useState(false); const [error, setError] = useState(null);
+            const { token } = useAuth();
             const handleSubmit = async (e) => {
                 e.preventDefault(); setIsSubmitting(true); setError(null);
                 try {
-                    if (window.ENV.EMAILJS_PUBLIC_KEY === 'YOUR_PUBLIC_KEY_HERE') throw new Error('Please configure EmailJS credentials in the code');
-                    const baseUrl = window.ENV.API_URL; const files = currentOutput?.downloads?.individual_files || {};
-                    const templateParams = { from_name: formData.from_name, customer_email: formData.customer_email, customer_phone: formData.customer_phone || 'Not provided', customer_location: formData.customer_location || 'Not provided', preferred_contact: formData.preferred_contact, device_name: currentOutput?.device_name || 'Unnamed Device', quantity: formData.quantity, generated_at: new Date(currentOutput?.generated_at || Date.now()).toLocaleString(), special_requests: formData.special_requests || 'None', original_prompt: currentOutput?.original_prompt || 'No prompt available', stl_url: files.stl?.url ? (files.stl.url.startsWith('http') ? files.stl.url : `${baseUrl}${files.stl.url}`) : 'Not available', scad_url: files.scad?.url ? (files.scad.url.startsWith('http') ? files.scad.url : `${baseUrl}${files.scad.url}`) : 'Not available', circuit_url: files.circuit?.url ? (files.circuit.url.startsWith('http') ? files.circuit.url : `${baseUrl}${files.circuit.url}`) : 'Not available', firmware_url: files.firmware?.url ? (files.firmware.url.startsWith('http') ? files.firmware.url : `${baseUrl}${files.firmware.url}`) : 'Not available', bom_url: files.bom?.url ? (files.bom.url.startsWith('http') ? files.bom.url : `${baseUrl}${files.bom.url}`) : 'Not available', reply_to: formData.customer_email };
-                    const response = await emailjs.send(window.ENV.EMAILJS_SERVICE_ID, window.ENV.EMAILJS_TEMPLATE_ID, templateParams);
-                    console.log('Build order sent:', response); setSubmitSuccess(true);
+                    // Send the order to our backend, which stores it and emails the founder.
+                    const payload = {
+                        from_name: formData.from_name,
+                        customer_email: formData.customer_email,
+                        customer_phone: formData.customer_phone,
+                        customer_location: formData.customer_location,
+                        preferred_contact: formData.preferred_contact,
+                        quantity: formData.quantity,
+                        special_requests: formData.special_requests,
+                        device_name: currentOutput?.device_name || 'Unnamed Device',
+                        design_id: currentOutput?.design_id || null,
+                        original_prompt: currentOutput?.original_prompt || '',
+                        generated_at: currentOutput?.generated_at || new Date().toISOString(),
+                        bom: currentOutput?.bomContent || ''
+                    };
+                    const response = await fetch(`${window.ENV.API_URL}/order`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(data.error || 'Failed to submit build order');
+                    console.log('Build order sent:', data); setSubmitSuccess(true);
                     if (typeof track !== 'undefined') track('submit_build_order', { 
                         device_name: currentOutput?.device_name, 
                         quantity: formData.quantity,

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { userFromAuth } = require('../lib/auth');
 const { generateDesign } = require('../lib/generate');
-const { designs, reapDesigns } = require('../lib/store');
+const store = require('../lib/store');
 
 // Cost model mirrors the target: ~1 credit per 100 tokens, floored at 1.
 function creditCost(tokensUsed) {
@@ -11,7 +11,7 @@ function creditCost(tokensUsed) {
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const user = userFromAuth(req);
+  const user = await userFromAuth(req);
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   const prompt = ((req.body && req.body.prompt) || '').toString().trim();
@@ -29,18 +29,13 @@ module.exports = async (req, res) => {
     return res.status(502).json({ error: 'Generation failed: ' + err.message });
   }
 
-  // Deduct credits (partial deduction floored at 0, like the target).
+  // Deduct credits atomically (partial deduction floored at 0, like the target).
   const cost = creditCost(design.tokens_used);
-  const deducted = Math.min(cost, user.credits);
-  const warning = cost > user.credits
-    ? 'Partial deduction: insufficient credits for the full cost'
-    : undefined;
-  user.credits = Math.max(0, user.credits - cost);
+  const { deducted, remaining, warning } = await store.deductCredits(user.id, cost);
 
-  // Store artifacts for the follow-up download GETs.
-  reapDesigns();
+  // Persist artifacts for the follow-up download GETs.
   const id = crypto.randomBytes(4).toString('hex');
-  designs.set(id, { createdAt: Date.now(), files: design.files });
+  await store.saveDesign(id, user.id, design.device_name, prompt, design.files);
 
   const name = design.device_name;
   const base = `/api/download/${id}`;
@@ -53,7 +48,7 @@ module.exports = async (req, res) => {
       deducted,
       cost_estimate: cost,
       tokens_used: design.tokens_used,
-      remaining: user.credits,
+      remaining,
       ...(warning ? { warning } : {}),
     },
     downloads: {

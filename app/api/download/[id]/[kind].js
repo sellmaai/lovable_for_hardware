@@ -1,4 +1,4 @@
-const { designs } = require('../../../lib/store');
+const store = require('../../../lib/store');
 
 const CONTENT_TYPES = {
   jscad: 'text/javascript; charset=utf-8',
@@ -8,14 +8,15 @@ const CONTENT_TYPES = {
   instructions: 'text/plain; charset=utf-8',
 };
 
-module.exports = (req, res) => {
+module.exports = async (req, res) => {
   const id = req.query && req.query.id;
   const kind = req.query && req.query.kind;
 
-  const design = designs.get(id);
+  const design = await store.getDesign(id);
   if (!design) return res.status(404).json({ detail: 'Design not found or expired' });
 
-  const content = design.files[kind];
+  const files = design.files || {};
+  const content = files[kind];
   if (content == null) return res.status(404).json({ detail: 'Artifact not found' });
 
   res.setHeader('Content-Type', CONTENT_TYPES[kind] || 'text/plain; charset=utf-8');

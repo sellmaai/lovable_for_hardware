@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment — pitchaprint</title>
+  <style>
+    body { font-family: -apple-system, 'Inter', sans-serif; background: #fafafa; color: #111; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .card { background: #fff; border: 1px solid #eee; border-radius: 20px; padding: 40px; max-width: 400px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1); }
+    .check { width: 64px; height: 64px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    p { color: #666; font-size: 0.9rem; margin: 4px 0; }
+    .amt { font-size: 1.75rem; font-weight: 700; margin: 16px 0; }
+    small { color: #999; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="check">
+      <svg width="32" height="32" fill="none" stroke="#16a34a" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <h1>Payment successful</h1>
+    <p class="amt" id="amt"></p>
+    <p>Credits have been added to your account.</p>
+    <p><small>This is a mock checkout (Paystack is not wired up). You can close this tab and return to the app.</small></p>
+  </div>
+  <script>
+    const p = new URLSearchParams(location.search);
+    const amount = parseInt(p.get('amount'), 10) || 0;
+    document.getElementById('amt').textContent = '+' + amount.toLocaleString() + ' credits';
+  </script>
+</body>
+</html>

@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pitchaprint — AI Hardware Design</title>
+
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="//script.crazyegg.com/pages/scripts/0133/1423.js" async="async"></script>
+    <!-- Vercel Analytics -->
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FY9JR6VHMG"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-FY9JR6VHMG');
+    </script>
+
+    <script defer src="/_vercel/insights/script.js"></script>
+
+    <!-- React and Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.22.5/babel.min.js"></script>
+
+    <!-- Other dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.4.1/backbone-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.5/joint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jointjs/3.7.5/joint.min.css" />
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #fafafa; color: #111; }
+        .mono { font-family: 'SF Mono', Monaco, monospace; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+        .input-line { position: relative; }
+        .input-line::after { content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 1px; background: #111; transition: 0.3s; transform: translateX(-50%); }
+        .input-line:focus-within::after { width: 100%; }
+        @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+        .loading-dot { animation: blink 1.4s infinite both; }
+        .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+        #circuit-container { background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e5e5; }
+        #stl-container { background: #fff; border-radius: 12px; border: 1px solid #e5e5e5; }
+        #monaco-container { border-radius: 12px; border: 1px solid #e5e5e5; }
+        .tab-active { border-bottom: 1px solid #111; color: #111; }
+        .tab-inactive { color: #999; border-bottom: 1px solid transparent; }
+        .tab-inactive:hover { color: #666; }
+        .modal-overlay { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content { transform: translateY(20px) scale(0.95); transition: transform 0.3s ease; }
+        .modal-overlay.active .modal-content { transform: translateY(0) scale(1); }
+        @keyframes checkmark { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        .checkmark-animate { animation: checkmark 0.5s ease-out; }
+        .minimal-header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 50; }
+        .history-drawer { position: fixed; left: 0; top: 60px; bottom: 0; width: 280px; background: #fff; border-right: 1px solid #eee; transform: translateX(-100%); transition: transform 0.3s ease; z-index: 40; }
+        .history-drawer.open { transform: translateX(0); }
+
+        .auth-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            padding: 20px;
+        }
+        .auth-modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .auth-modal {
+            background: white;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 420px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            transform: translateY(20px) scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .auth-modal-overlay.active .auth-modal { transform: translateY(0) scale(1); }
+
+        .auth-tab-btn { flex: 1; padding: 12px; text-align: center; font-size: 0.875rem; font-weight: 500; color: #999; border-bottom: 2px solid transparent; transition: all 0.2s; cursor: pointer; background: none; border-top: none; border-left: none; border-right: none; }
+        .auth-tab-btn.active { color: #111; border-bottom-color: #111; }
+        .auth-input { width: 100%; padding: 12px 16px; background: #f9f9f9; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 0.9rem; transition: all 0.2s; outline: none; }
+        .auth-input:focus { border-color: #111; background: #fff; box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+        .btn-primary { width: 100%; padding: 12px; background: #111; color: white; border: none; border-radius: 12px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary:hover { background: #333; transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary { width: 100%; padding: 12px; background: #f5f5f5; color: #111; border: 1px solid #e5e5e5; border-radius: 12px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: #eee; }
+        .balance-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 100px; font-size: 0.8rem; font-weight: 600; color: #166534; transition: all 0.3s; }
+        .toast { position: fixed; top: 80px; right: 20px; padding: 14px 20px; border-radius: 12px; font-size: 0.85rem; font-weight: 500; color: white; transform: translateX(150%); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 200; max-width: 360px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .toast.show { transform: translateX(0); }
+        .toast.success { background: #22c55e; }
+        .toast.error { background: #ef4444; }
+        .toast.info { background: #111; }
+        .quick-amount { padding: 8px 16px; border: 1px solid #e5e5e5; border-radius: 8px; background: white; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+        .quick-amount:hover { border-color: #111; background: #fafafa; }
+        .social-links { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 35; display: flex; gap: 12px; }
+        .social-link { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-radius: 9999px; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 2px 8px rgba(0,0,0,0.05); font-size: 12px; color: #666; text-decoration: none; transition: all 0.3s ease; opacity: 0.7; }
+        .social-link:hover { opacity: 1; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .social-link.discord:hover { border-color: #5865F2; color: #5865F2; }
+        .social-link.linkedin:hover { border-color: #0A66C2; color: #0A66C2; }
+        .user-menu { position: relative; }
+        .user-menu-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: white; border: 1px solid #eee; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); min-width: 200px; opacity: 0; pointer-events: none; transform: translateY(-8px); transition: all 0.2s; z-index: 60; }
+        .user-menu-dropdown.open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+        .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 0.85rem; color: #333; cursor: pointer; transition: background 0.15s; border: none; background: none; width: 100%; text-align: left; }
+        .dropdown-item:hover { background: #f9f9f9; }
+        .dropdown-item:first-child { border-radius: 12px 12px 0 0; }
+        .dropdown-item:last-child { border-radius: 0 0 12px 12px; color: #dc2626; }
+        .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+<base target="_blank">
+<base target="_blank">
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- Loading indicator that shows while Babel compiles -->
+    <div id="babel-loading" style="position:fixed; top:0; left:0; right:0; bottom:0; background:#fafafa; display:flex; align-items:center; justify-content:center; z-index:9999;">
+        <div style="text-align:center;">
+            <div style="width:40px; height:40px; border:3px solid #eee; border-top-color:#111; border-radius:50%; animation:spin 1s linear infinite; margin:0 auto 16px;"></div>
+            <p style="font-size:14px; color:#666;">Loading app...</p>
+            <p style="font-size:12px; color:#999; margin-top:8px;">If this persists, check console for errors</p>
+        </div>
+    </div>
+
+    <div class="social-links">
+        <a href="https://discord.gg/gm62PQn7" target="_blank" rel="noopener noreferrer" class="social-link discord">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+            <span>Join Discord</span>
+        </a>
+        <a href="https://www.linkedin.com/posts/picha-print-ai_ai-hardwareinnovation-productdevelopment-activity-7437121597389328384-fDW4" target="_blank" rel="noopener noreferrer" class="social-link linkedin">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>
+            <span>Follow on LinkedIn</span>
+        </a>
+    </div>
+    <script>
+        window.ENV = {
+            API_URL: "/api",
+            EMAILJS_PUBLIC_KEY: 'eEJPvAel3mOPmxCrX',
+            EMAILJS_SERVICE_ID: 'service_4dtamkb',
+            EMAILJS_TEMPLATE_ID: 'template_lp9uzeb'
+        };
+
+        // Hide loading spinner when React mounts
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                var root = document.getElementById('root');
+                if (root && root.children.length > 0) {
+                    document.getElementById('babel-loading').style.display = 'none';
+                } else {
+                    document.getElementById('babel-loading').innerHTML = 
+                        '<div style="text-align:center; padding:40px;">' +
+                        '<h2 style="color:#111; margin-bottom:16px;">App failed to load</h2>' +
+                        '<p style="color:#666; margin-bottom:8px;">React did not mount. Common causes:</p>' +
+                        '<ul style="color:#999; text-align:left; display:inline-block; font-size:13px; line-height:1.8;">' +
+                        '<li>Babel failed to compile JSX (check browser console)</li>' +
+                        '<li>External CDN scripts blocked by CSP</li>' +
+                        '<li>Opening file directly (file://) instead of via server</li>' +
+                        '<li>JavaScript disabled</li>' +
+                        '</ul>' +
+                        '<p style="color:#666; margin-top:16px; font-size:13px;"><strong>Fix:</strong> Open this file in a real browser (Chrome/Firefox) with internet access, or serve via a local server.</p>' +
+                        '</div>';
+                }
+            }, 8000); // Wait 8 seconds for Babel to compile
+        });
+    </script>
+<script type="text/babel" data-presets="react">
+        const { useState, useEffect, useRef, createContext, useContext } = React;
+        const isJointLoaded = () => typeof joint !== 'undefined' && joint.dia && joint.dia.Graph;
+
+        const AuthContext = createContext(null);
+        const AuthProvider = ({ children }) => {
+            const [token, setToken] = useState(localStorage.getItem("pitchaprint_token") || "");
+            const [user, setUser] = useState(null);
+            const [credits, setCredits] = useState(0);
+            const [loading, setLoading] = useState(false);
+
+            const api = async (path, opts = {}) => {
+                const url = `${window.ENV.API_URL}${path}`;
+                const res = await fetch(url, {
+                    headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}), ...opts.headers },
+                    ...opts
+                });
+                const data = await res.json().catch(() => ({}));
+                return { ok: res.ok, status: res.status, data };
+            };
+
+            const login = async (email, password) => {
+                setLoading(true);
+                const { ok, data } = await api("/login", { method: "POST", body: JSON.stringify({ email, password }) });
+                setLoading(false);
+                if (ok && data.token) {
+                    setToken(data.token); localStorage.setItem("pitchaprint_token", data.token); setCredits(data.credits || 0); await fetchProfile();
+                    if (typeof track !== 'undefined') track('login', { method: 'email', credits: data.credits || 0 });
+                    return { success: true, credits: data.credits };
+                }
+                if (typeof track !== 'undefined') track('login_error', { error: data.error || "Login failed" });
+                return { success: false, error: data.error || "Login failed" };
+            };
+
+            const signup = async (name, email, password) => {
+                setLoading(true);
+                const { ok, data } = await api("/signup", { method: "POST", body: JSON.stringify({ name, email, password }) });
+                setLoading(false);
+                if (ok) {
+                    if (typeof track !== 'undefined') track('sign_up', { method: 'email' });
+                    return { success: true };
+                }
+                if (typeof track !== 'undefined') track('sign_up_error', { error: data.error || "Signup failed" });
+                return { success: false, error: data.error || "Signup failed" };
+            };
+
+            const fetchProfile = async () => {
+                if (!token) return;
+                const { ok, data } = await api("/me");
+                if (ok) { setUser({ name: data.name, email: data.email }); setCredits(data.credits || 0); }
+                else { logout(); }
+            };
+
+            const pay = async (amount) => {
+                if (!token) return { success: false, error: "Please login first" };
+                const { ok, data } = await api("/pay", { method: "POST", body: JSON.stringify({ amount }) });
+                if (ok && data.authorization_url) {
+                    if (typeof track !== 'undefined') track('begin_checkout', { value: amount, currency: 'KES', reference: data.reference });
+                    return { success: true, url: data.authorization_url, reference: data.reference };
+                }
+                if (typeof track !== 'undefined') track('checkout_error', { error: data.error || "Payment init failed" });
+                return { success: false, error: data.error || "Payment init failed" };
+            };
+
+            const verifyPayment = async (reference) => {
+                if (!token) return { success: false, error: "Please login first" };
+                const { ok, data } = await api(`/verify/${reference}`);
+                if (ok && data.credited) { setCredits(data.new_balance || credits + (data.amount_added || 0)); await fetchProfile(); return { success: true, amount: data.amount_added, message: data.message }; }
+                return { success: false, error: data.error || data.message || "Not verified yet" };
+            };
+
+            const logout = () => { setToken(""); setUser(null); setCredits(0); localStorage.removeItem("pitchaprint_token"); if (typeof track !== 'undefined') track('logout'); };
+            useEffect(() => { if (token) fetchProfile(); }, [token]);
+
+            return (
+                <AuthContext.Provider value={{ token, user, credits, loading, login, signup, logout, pay, verifyPayment, fetchProfile, api }}>
+                    {children}
+                </AuthContext.Provider>
+            );
+        };
+        const useAuth = () => useContext(AuthContext);
+
+        const Storage = {
+            db: null, DB_NAME: 'pitchaprint_db_v2', STORE_NAME: 'designs', DB_VERSION: 1,
+            async init() {
+                if (this.db) return this.db;
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => { this.db = request.result; resolve(this.db); };
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+                            const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'id' });
+                            store.createIndex('timestamp', 'timestamp', { unique: false });
+                            store.createIndex('deviceName', 'deviceName', { unique: false });
+                        }
+                    };
+                });
+            },
+            async addDesign(input, output) {
+                await this.init();
+                const entry = { id: Date.now(), timestamp: new Date().toISOString(), input, output: { device_name: output.device_name, generated_at: output.generated_at, original_prompt: output.original_prompt, downloads: output.downloads, stlData: output.stlData, scadContent: output.scadContent, jscadContent: output.jscadContent, circuitData: output.circuitData, firmwareContent: output.firmwareContent, bomContent: output.bomContent, instructionsContent: output.instructionsContent }, deviceName: output.device_name || 'unnamed' };
+                return new Promise((resolve, reject) => { const tx = this.db.transaction([this.STORE_NAME], 'readwrite'); const request = tx.objectStore(this.STORE_NAME).put(entry); request.onsuccess = () => resolve(entry); request.onerror = () => reject(request.error); });
+            },
+            async getHistory() {
+                await this.init();
+                return new Promise((resolve, reject) => { const tx = this.db.transaction([this.STORE_NAME], 'readonly'); const request = tx.objectStore(this.STORE_NAME).index('timestamp').openCursor(null, 'prev'); const results = []; request.onsuccess = (e) => { const cursor = e.target.result; if (cursor) { results.push(cursor.value); cursor.continue(); } else resolve(results); }; request.onerror = () => reject(request.error); });
+            },
+            async loadDesign(id) { await this.init(); return new Promise((resolve, reject) => { const tx = this.db.transaction([this.STORE_NAME], 'readonly'); const request = tx.objectStore(this.STORE_NAME).get(id); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); },
+            async deleteDesign(id) { await this.init(); return new Promise((resolve, reject) => { const tx = this.db.transaction([this.STORE_NAME], 'readwrite'); const request = tx.objectStore(this.STORE_NAME).delete(id); request.onsuccess = () => resolve(); request.onerror = () => reject(request.error); }); },
+            async clearHistory() { await this.init(); return new Promise((resolve, reject) => { const tx = this.db.transaction([this.STORE_NAME], 'readwrite'); const request = tx.objectStore(this.STORE_NAME).clear(); request.onsuccess = () => resolve(); request.onerror = () => reject(request.error); }); }
+        };
+
+        const Toast = ({ message, type, onClose }) => {
+            useEffect(() => { const timer = setTimeout(onClose, 3000); return () => clearTimeout(timer); }, [onClose]);
+            return <div className={`toast ${type} show`}>{message}</div>;
+        };
+
+        const AuthModal = ({ isOpen, onClose, initialTab = 'login' }) => {
+            const [tab, setTab] = useState(initialTab);
+            const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
+            const [loading, setLoading] = useState(false); const [error, setError] = useState(""); const [toast, setToast] = useState(null);
+            const { login, signup } = useAuth();
+
+            const handleLogin = async (e) => {
+                e.preventDefault(); setLoading(true); setError('');
+                if (typeof track !== 'undefined') track('login_attempt', { email_domain: email.split('@')[1] });
+                const result = await login(email, password); setLoading(false);
+                if (result.success) { setToast({ message: `Welcome back! ${result.credits || 0} credits`, type: 'success' }); onClose(); }
+                else { setError(result.error); }
+            };
+
+            const handleSignup = async (e) => {
+                e.preventDefault(); setLoading(true); setError('');
+                if (typeof track !== 'undefined') track('sign_up_attempt', { email_domain: email.split('@')[1] });
+                const result = await signup(name, email, password); setLoading(false);
+                if (result.success) { setToast({ message: 'Account created! Please sign in.', type: 'success' }); setTab('login'); setPassword(''); }
+                else { setError(result.error); }
+            };
+
+            if (!isOpen) return null;
+            return (
+                <>
+                    <div className={`auth-modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
+                        <div className="auth-modal" onClick={e => e.stopPropagation()}>
+                            <div className="flex border-b border-gray-100">
+                                <button className={`auth-tab-btn ${tab === 'login' ? 'active' : ''}`} onClick={() => { setTab('login'); setError(''); }}>Sign In</button>
+                                <button className={`auth-tab-btn ${tab === 'signup' ? 'active' : ''}`} onClick={() => { setTab('signup'); setError(''); }}>Create Account</button>
+                            </div>
+                            <div className="p-6">
+                                {error && <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">{error}</div>}
+                                {tab === 'login' ? (
+                                    <form onSubmit={handleLogin} className="space-y-4">
+                                        <div><label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Email</label><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="auth-input" placeholder="you@example.com" /></div>
+                                        <div><label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Password</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="auth-input" placeholder="Your password" /></div>
+                                        <button type="submit" disabled={loading} className="btn-primary mt-2">{loading ? <div className="spinner" /> : 'Sign In'}</button>
+                                    </form>
+                                ) : (
+                                    <form onSubmit={handleSignup} className="space-y-4">
+                                        <div><label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Full Name</label><input type="text" required value={name} onChange={e => setName(e.target.value)} className="auth-input" placeholder="John Doe" /></div>
+                                        <div><label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Email</label><input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="auth-input" placeholder="you@example.com" /></div>
+                                        <div><label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Password</label><input type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} className="auth-input" placeholder="Min 6 characters" /></div>
+                                        <button type="submit" disabled={loading} className="btn-primary mt-2">{loading ? <div className="spinner" /> : 'Create Account'}</button>
+                                    </form>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+                </>
+            );
+        };
+
+        const PaymentModal = ({ isOpen, onClose }) => {
+            const { credits, pay } = useAuth();
+            const [amount, setAmount] = useState("");
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState("");
+            const [toast, setToast] = useState(null);
+
+            const handlePay = async () => {
+                const amt = parseInt(amount); if (!amt || amt <= 0) { setError('Enter a valid amount'); return; }
+                setLoading(true); setError(''); const result = await pay(amt); setLoading(false);
+                if (result.success) { window.open(result.url, '_blank'); setToast({ message: 'Paystack opened in new tab', type: 'info' }); }
+                else { setError(result.error); }
+            };
+
+            if (!isOpen) return null;
+            return (
+                <>
+                    <div className={`auth-modal-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}>
+                        <div className="auth-modal" onClick={e => e.stopPropagation()}>
+                            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                                <div><h3 className="text-lg font-semibold">Buy Credits</h3><p className="text-sm text-gray-500">Pay via Paystack (KES)</p></div>
+                                <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                            </div>
+                            <div className="p-6 space-y-6">
+                                {error && <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">{error}</div>}
+                                <div className="text-center p-4 bg-gray-50 rounded-xl">
+                                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Current Balance</div>
+                                    <div className="text-2xl font-bold text-gray-900">{credits.toLocaleString()} <span className="text-sm font-normal text-gray-500">credits</span></div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 text-center">Amount (KES)</label>
+                                    <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="auth-input mb-3 text-center text-lg font-semibold" placeholder="500" min="1" />
+                                    <div className="flex gap-2 justify-center">
+                                        {[100, 500, 1000, 5000].map(amt => <button key={amt} type="button" onClick={() => { setAmount(amt.toString()); if (typeof track !== 'undefined') track('select_amount', { amount: amt, currency: 'KES' }); }} className="quick-amount">{amt.toLocaleString()}</button>)}
+                                    </div>
+                                </div>
+                                <button onClick={handlePay} disabled={loading} className="btn-primary">{loading ? <div className="spinner" /> : 'Pay with Paystack'}</button>
+                            </div>
+                        </div>
+                    </div>
+                    {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+                </>
+            );
+        };
+const UserMenu = () => {
+            const { user, credits, logout } = useAuth();
+            const [open, setOpen] = useState(false); const [showPayment, setShowPayment] = useState(false);
+            const menuRef = useRef(null);
+            useEffect(() => { const handleClick = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false); }; document.addEventListener('mousedown', handleClick); return () => document.removeEventListener('mousedown', handleClick); }, []);
+            if (!user) return null;
+            return (
+                <>
+                    <div className="user-menu" ref={menuRef}>
+                        <button onClick={() => setOpen(!open)} className="flex items-center gap-2 hover:bg-gray-100 rounded-lg px-3 py-1.5 transition-colors">
+                            <div className="w-7 h-7 bg-black text-white rounded-full flex items-center justify-center text-xs font-medium">{user.name?.charAt(0)?.toUpperCase() || 'U'}</div>
+                            <span className="text-sm font-medium hidden sm:block">{user.name?.split(' ')[0]}</span>
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        <div className={`user-menu-dropdown ${open ? 'open' : ''}`}>
+                            <div className="px-4 py-3 border-b border-gray-50"><div className="font-medium text-sm">{user.name}</div><div className="text-xs text-gray-400">{user.email}</div></div>
+                            <div className="px-4 py-2 border-b border-gray-50 flex items-center justify-between"><span className="text-xs text-gray-500">Credits</span><span className="text-sm font-semibold text-green-600">{credits.toLocaleString()}</span></div>
+                            <button className="dropdown-item" onClick={() => { setShowPayment(true); setOpen(false); if (typeof track !== 'undefined') track('click_buy_credits', { current_credits: credits }); }}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Buy Credits</button>
+                            <button className="dropdown-item" onClick={() => { logout(); setOpen(false); }}><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>Sign Out</button>
+                        </div>
+                    </div>
+                    <PaymentModal isOpen={showPayment} onClose={() => setShowPayment(false)} />
+                </>
+            );
+        };
+
+        const STLViewer = ({ stlData, deviceName }) => {
+            const containerRef = useRef(null); const sceneRef = useRef(null); const rendererRef = useRef(null);
+            const cameraRef = useRef(null); const controlsRef = useRef(null); const meshRef = useRef(null); const frameIdRef = useRef(null);
+            useEffect(() => {
+                if (!stlData || !containerRef.current) return;
+                let buffer; if (stlData instanceof ArrayBuffer) buffer = stlData; else if (stlData instanceof Uint8Array) buffer = stlData.buffer.slice(stlData.byteOffset, stlData.byteOffset + stlData.byteLength); else return;
+                if (!buffer || buffer.byteLength === 0) return;
+                const container = containerRef.current; const width = container.clientWidth || 800; const height = 400;
+                if (rendererRef.current) {
+                    if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current); if (controlsRef.current) controlsRef.current.dispose();
+                    if (meshRef.current) { if (meshRef.current.geometry) meshRef.current.geometry.dispose(); if (meshRef.current.material) meshRef.current.material.dispose(); }
+                    if (rendererRef.current.domElement && container.contains(rendererRef.current.domElement)) container.removeChild(rendererRef.current.domElement);
+                    rendererRef.current.dispose();
+                }
+                try {
+                    const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff); sceneRef.current = scene;
+                    const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 10000); cameraRef.current = camera;
+                    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); renderer.setSize(width, height); renderer.setPixelRatio(window.devicePixelRatio); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; container.appendChild(renderer.domElement); rendererRef.current = renderer;
+                    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+                    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2); dirLight.position.set(5, 10, 7); dirLight.castShadow = true; scene.add(dirLight);
+                    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4); fillLight.position.set(-5, 0, -5); scene.add(fillLight);
+                    const controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.05; controls.autoRotate = true; controls.autoRotateSpeed = 1.0; controlsRef.current = controls;
+                    const geometry = new THREE.STLLoader().parse(buffer); geometry.computeBoundingBox(); const center = new THREE.Vector3(); geometry.boundingBox.getCenter(center); geometry.translate(-center.x, -center.y, -center.z);
+                    const box = new THREE.Box3().setFromObject(new THREE.Mesh(geometry)); const size = box.getSize(new THREE.Vector3());
+                    const material = new THREE.MeshPhongMaterial({ color: 0xcccccc, specular: 0x444444, shininess: 100, flatShading: false, side: THREE.DoubleSide });
+                    const mesh = new THREE.Mesh(geometry, material); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh); meshRef.current = mesh;
+                    const edgesGeometry = new THREE.EdgesGeometry(geometry, 15); const edgesMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1, opacity: 0.2, transparent: true }); const edges = new THREE.LineSegments(edgesGeometry, edgesMaterial); mesh.add(edges);
+                    const fov = camera.fov * (Math.PI / 180); const fovh = 2 * Math.atan(Math.tan(fov / 2) * camera.aspect); const margin = 1.5;
+                    const dx = size.z / 2 + Math.abs(size.x / 2 / Math.tan(fovh / 2)); const dy = size.z / 2 + Math.abs(size.y / 2 / Math.tan(fov / 2)); const distance = Math.max(dx, dy) * margin;
+                    camera.position.set(0, 0, distance); camera.near = Math.max(0.01, distance / 100); camera.far = Math.max(10000, distance * 10); camera.updateProjectionMatrix();
+                    controls.target.set(0, 0, 0); controls.maxDistance = distance * 3; controls.minDistance = size.x / 10; controls.update();
+                    const animate = () => { frameIdRef.current = requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }; animate();
+                    const handleResize = () => { if (!containerRef.current || !cameraRef.current || !rendererRef.current) return; const newWidth = containerRef.current.clientWidth; const newHeight = 400; cameraRef.current.aspect = newWidth / newHeight; cameraRef.current.updateProjectionMatrix(); rendererRef.current.setSize(newWidth, newHeight); };
+                    window.addEventListener('resize', handleResize);
+                    return () => { window.removeEventListener('resize', handleResize); if (frameIdRef.current) cancelAnimationFrame(frameIdRef.current); if (controlsRef.current) controlsRef.current.dispose(); if (meshRef.current) { if (meshRef.current.geometry) meshRef.current.geometry.dispose(); if (meshRef.current.material) meshRef.current.material.dispose(); } if (rendererRef.current) { if (rendererRef.current.domElement && container.contains(rendererRef.current.domElement)) container.removeChild(rendererRef.current.domElement); rendererRef.current.dispose(); } };
+                } catch (err) { container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm">Failed to load 3D model</div>'; }
+            }, [stlData, deviceName]);
+            return <div ref={containerRef} id="stl-container" className="w-full h-[400px] flex items-center justify-center relative overflow-hidden">{!stlData && <span className="text-gray-300 text-sm">STL preview will appear here</span>}</div>;
+        };
+
+        // Editable 3D viewer (JSCAD/Three.js) embedded via iframe — isolates its modern Three.js + JSCAD deps.
+        // The app feeds it the generated STL over postMessage; when the backend ships JSCAD it can post 'load-jscad-text'.
+        const Model3DViewer = ({ stlData, jscadContent, deviceName }) => {
+            const iframeRef = useRef(null);
+            const [loaded, setLoaded] = useState(false);
+            useEffect(() => {
+                if (!jscadContent && !(stlData instanceof ArrayBuffer)) return;
+                setLoaded(false);
+                let acked = false, tries = 0, timer = null;
+                // Retry posting the model until the viewer acknowledges it loaded (handles iframe load races).
+                const post = () => {
+                    if (acked) return;
+                    const ifr = iframeRef.current;
+                    if (ifr && ifr.contentWindow && tries < 25) {
+                        try {
+                            if (jscadContent) {
+                                ifr.contentWindow.postMessage({ type: 'load-jscad-text', text: jscadContent, name: (deviceName || 'model') + '.jscad' }, '*');
+                            } else {
+                                const copy = stlData.slice(0); // fresh clone each try; app keeps its own buffer
+                                ifr.contentWindow.postMessage({ type: 'load-stl-buffer', buffer: copy, name: (deviceName || 'model') + '.stl' }, '*', [copy]);
+                            }
+                        } catch (err) { console.warn('viewer postMessage failed:', err); }
+                        tries++;
+                        timer = setTimeout(post, 500);
+                    }
+                };
+                const onMsg = (e) => {
+                    if (!e.data) return;
+                    if (e.data.type === 'viewer-ready') post();
+                    else if (e.data.type === 'model-loaded') { acked = true; setLoaded(true); if (timer) clearTimeout(timer); }
+                };
+                window.addEventListener('message', onMsg);
+                timer = setTimeout(post, 700);
+                return () => { acked = true; window.removeEventListener('message', onMsg); if (timer) clearTimeout(timer); };
+            }, [stlData, jscadContent, deviceName]);
+            return (
+                <div className="relative w-full rounded-xl border border-gray-200 bg-white overflow-hidden" style={{ height: '460px' }}>
+                    <iframe ref={iframeRef} src="viewer.html" title="3D Viewer" className="w-full h-full block" />
+                    {!loaded && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white pointer-events-none">
+                            <div className="relative w-10 h-10 mb-3">
+                                <div className="absolute inset-0 rounded-full border-2 border-gray-100"></div>
+                                <div className="absolute inset-0 rounded-full border-2 border-black border-t-transparent animate-spin"></div>
+                            </div>
+                            <span className="text-xs text-gray-400">Loading 3D viewer…</span>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const CircuitViewer = ({ circuitData }) => {
+            const containerRef = useRef(null);
+            const [jointReady, setJointReady] = useState(false);
+            const paperRef = useRef(null);
+            const [zoom, setZoom] = useState(1);
+            const autoScaleRef = useRef(1);
+
+            useEffect(() => {
+                let attempts = 0;
+                const checkJoint = () => {
+                    if (isJointLoaded()) { setJointReady(true); return; }
+                    attempts++;
+                    if (attempts < 50) setTimeout(checkJoint, 100);
+                };
+                checkJoint();
+            }, []);
+
+            useEffect(() => {
+                if (!jointReady || !circuitData || !containerRef.current) return;
+                if (!circuitData.nodes || !Array.isArray(circuitData.nodes)) return;
+                const container = containerRef.current;
+                const width = container.clientWidth || 800;
+                const height = 500;
+                container.innerHTML = '';
+                try {
+                    const graph = new joint.dia.Graph();
+                    const paper = new joint.dia.Paper({
+                        el: container,
+                        model: graph,
+                        width,
+                        height,
+                        gridSize: 10,
+                        drawGrid: { name: 'dot', args: { color: '#f0f0f0' }},
+                        background: { color: '#fff' }
+                    });
+                    paperRef.current = paper;
+                    const elements = {};
+                    const COL_W = 220, ROW_H = 110, MARGIN_X = 40, MARGIN_Y = 40;
+                    const cols = Math.max(1, Math.floor((width - MARGIN_X * 2) / COL_W));
+                    circuitData.nodes.forEach((node, idx) => {
+                        const rect = new joint.shapes.standard.Rectangle();
+                        const text = String(node.label || node.id);
+                        const lines = text.split('\n');
+                        const longest = Math.max.apply(null, lines.map(l => l.length).concat([6]));
+                        const w = Math.min(260, Math.max(160, Math.round(longest * 7.2) + 28));
+                        const h = Math.max(64, lines.length * 18 + 24);
+                        let nx, ny;
+                        if (node.x != null && node.y != null) { nx = node.x; ny = node.y; }
+                        else { nx = MARGIN_X + (idx % cols) * COL_W; ny = MARGIN_Y + Math.floor(idx / cols) * ROW_H; }
+                        rect.position(Math.round(nx), Math.round(ny));
+                        rect.resize(w, h);
+                        rect.attr({ body: { fill: '#fff', stroke: '#222', strokeWidth: 2, rx: 10, ry: 10 }, label: { text: text, fill: '#111', fontSize: 12, fontFamily: 'Inter, sans-serif', fontWeight: 500, textWrap: { width: w - 18, height: h - 12, ellipsis: true } } });
+                        rect.addTo(graph); elements[node.id] = rect;
+                    });
+                    if (circuitData.connections?.forEach) {
+                        circuitData.connections.forEach(conn => {
+                            if (elements[conn.source] && elements[conn.target]) {
+                                new joint.shapes.standard.Link({
+                                    source: { id: elements[conn.source].id },
+                                    target: { id: elements[conn.target].id },
+                                    attrs: { line: { stroke: '#444', strokeWidth: 2, targetMarker: { type: 'path', d: 'M 10 -5 0 0 10 5 z', fill: '#444' }}},
+                                    labels: conn.label ? [{ position: 0.5, attrs: { text: { text: conn.label, fill: '#555', fontSize: 11, fontWeight: 500 }}}] : []
+                                }).addTo(graph);
+                            }
+                        });
+                    }
+                    const contentRect = graph.getBBox();
+                    if (contentRect.width > 0) {
+                        const padding = 30;
+                        const scaleX = (width - padding * 2) / contentRect.width;
+                        const scaleY = (height - padding * 2) / contentRect.height;
+                        let scale = Math.min(scaleX, scaleY, 1.2);
+                        scale = Math.max(scale, 0.55);
+                        autoScaleRef.current = scale;
+                        setZoom(scale);
+                        paper.scale(scale, scale);
+                        paper.translate(
+                            (width - contentRect.width * scale) / 2 - contentRect.x * scale,
+                            (height - contentRect.height * scale) / 2 - contentRect.y * scale
+                        );
+                    }
+                    return () => { paper.remove(); paperRef.current = null; };
+                } catch (err) {
+                    container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm">Failed to render circuit</div>';
+                }
+            }, [jointReady, circuitData]);
+
+            const doZoom = (factor) => {
+                if (!paperRef.current || !containerRef.current) return;
+                const newZoom = Math.max(0.2, Math.min(5, zoom * factor));
+                setZoom(newZoom);
+                const container = containerRef.current;
+                const cx = (container.clientWidth || 800) / 2;
+                const cy = 250;
+                paperRef.current.scale(newZoom, newZoom, cx, cy);
+            };
+
+            const resetZoom = () => {
+                if (!paperRef.current || !containerRef.current) return;
+                const s = autoScaleRef.current;
+                setZoom(s);
+                const container = containerRef.current;
+                const width = container.clientWidth || 800;
+                const height = 500;
+                const contentRect = paperRef.current.model.getBBox();
+                if (contentRect.width > 0) {
+                    paperRef.current.scale(s, s);
+                    paperRef.current.translate(
+                        (width - contentRect.width * s) / 2 - contentRect.x * s,
+                        (height - contentRect.height * s) / 2 - contentRect.y * s
+                    );
+                }
+            };
+
+            if (!jointReady) return <div className="w-full h-[500px] flex items-center justify-center bg-white rounded-xl border border-gray-200"><span className="text-gray-300 text-sm">Loading circuit viewer...</span></div>;
+            return (
+                <div className="relative w-full h-[500px]">
+                    <div ref={containerRef} id="circuit-container" className="w-full h-full">
+                        {!circuitData && <span className="text-gray-300 text-sm flex items-center justify-center h-full">Circuit diagram will appear here</span>}
+                    </div>
+                    {circuitData && (
+                        <>
+                            <div className="absolute top-3 right-3 flex flex-col gap-1 z-10">
+                                <button onClick={() => doZoom(1.2)} className="w-8 h-8 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-black transition-colors" title="Zoom in">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                </button>
+                                <button onClick={() => doZoom(1/1.2)} className="w-8 h-8 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-black transition-colors" title="Zoom out">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
+                                </button>
+                                <button onClick={resetZoom} className="w-8 h-8 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center text-gray-600 hover:bg-gray-50 hover:text-black transition-colors" title="Fit to screen">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                                </button>
+                            </div>
+                            <span className="absolute bottom-3 right-3 text-[10px] text-gray-400 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md border border-gray-100">{Math.round(zoom * 100)}%</span>
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        // Strip a leading ```lang fence and trailing ``` that LLM-generated artifacts often include.
+        const stripCodeFence = (text) => {
+            if (!text || typeof text !== 'string') return text;
+            let t = text.replace(/^﻿/, '').trim();
+            t = t.replace(/^```[a-zA-Z0-9_+-]*[ \t]*\r?\n/, '');
+            t = t.replace(/\r?\n?```[ \t]*$/, '');
+            return t;
+        };
+
+        const FirmwareEditor = ({ code }) => {
+            const containerRef = useRef(null); const editorRef = useRef(null);
+            const [ready, setReady] = useState(false);
+            const clean = stripCodeFence(code);
+            useEffect(() => { if (!containerRef.current || !clean) return; setReady(false); require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs' }}); require(['vs/editor/editor.main'], () => { if (editorRef.current) return; editorRef.current = monaco.editor.create(containerRef.current, { value: clean, language: 'cpp', theme: 'vs-light', automaticLayout: true, minimap: { enabled: false }, scrollBeyondLastLine: false, fontSize: 13, fontFamily: 'SF Mono, Monaco, monospace', lineNumbers: 'on', readOnly: true }); setReady(true); }); return () => { if (editorRef.current) { editorRef.current.dispose(); editorRef.current = null; }}; }, [clean]);
+            return (
+                <div className="relative w-full h-[400px]">
+                    <div ref={containerRef} id="monaco-container" className="w-full h-full">{!clean && <span className="text-gray-300 text-sm flex items-center justify-center h-full bg-gray-50">Firmware code will appear here</span>}</div>
+                    {clean && !ready && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white pointer-events-none">
+                            <div className="relative w-10 h-10 mb-3"><div className="absolute inset-0 rounded-full border-2 border-gray-100"></div><div className="absolute inset-0 rounded-full border-2 border-black border-t-transparent animate-spin"></div></div>
+                            <span className="text-xs text-gray-400">Loading editor…</span>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Until the backend returns a dedicated instructions artifact, build a sensible
+        // assembly guide from the generated circuit + BOM so the tab is never empty.
+        function buildFallbackInstructions(output) {
+            if (!output) return null;
+            const L = ['ASSEMBLY GUIDE', '', '1. 3D-print the enclosure using the STL from the 3D View tab.'];
+            let comps = [];
+            if (output.bomContent) {
+                const rows = output.bomContent.split('\n').filter(r => r.trim()).slice(1);
+                comps = rows.map(r => r.split(',')).filter(c => c.length > 3)
+                    .map(c => `${(c[2] || '').trim()} (${(c[3] || '').trim()})`).filter(s => s.replace(/[()\s]/g, ''));
+            }
+            if (comps.length) { L.push('2. Gather the components from the BOM:'); comps.forEach(c => L.push('   - ' + c)); }
+            else L.push('2. Gather the components listed in the BOM tab.');
+            const conns = output.circuitData && output.circuitData.connections;
+            if (conns && conns.length) {
+                const nodes = output.circuitData.nodes || [];
+                const name = id => { const n = nodes.find(x => x.id === id); return n ? String(n.label || id).split('\n')[0] : id; };
+                L.push('3. Wire the components according to the circuit:');
+                conns.slice(0, 10).forEach(cn => L.push(`   - ${name(cn.source)} → ${name(cn.target)}${cn.label ? ' (' + cn.label + ')' : ''}`));
+            } else L.push('3. Wire the components as shown in the Circuit tab.');
+            L.push('4. Flash the firmware from the Firmware tab to the microcontroller over USB.');
+            L.push('5. Mount everything inside the enclosure and close it up.');
+            L.push('', '(Auto-generated from your design. Detailed step-by-step instructions will appear here once the backend provides them.)');
+            return L.join('\n');
+        }
+
+        const InstructionsViewer = ({ content }) => {
+            if (!content) return <div className="text-gray-300 text-sm p-8 text-center bg-white rounded-xl border border-gray-200">Assembly instructions will appear here</div>;
+            return (
+                <div className="border border-gray-200 rounded-xl bg-white overflow-auto max-h-[400px] p-6">
+                    <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{content}</div>
+                </div>
+            );
+        };
+
+        const LoadingScreen = () => {
+            const steps = ['Understanding your prompt', 'Designing the 3D casing', 'Routing the circuit', 'Writing the firmware', 'Compiling the bill of materials', 'Finalizing your design'];
+            const [step, setStep] = useState(0);
+            useEffect(() => { const id = setInterval(() => setStep(s => Math.min(s + 1, steps.length - 1)), 2500); return () => clearInterval(id); }, []);
+            return (
+                <div className="flex flex-col items-center justify-center min-h-[55vh] text-center animate-in fade-in duration-500">
+                    <div className="relative w-14 h-14 mb-8">
+                        <div className="absolute inset-0 rounded-full border-2 border-gray-100"></div>
+                        <div className="absolute inset-0 rounded-full border-2 border-black border-t-transparent animate-spin"></div>
+                    </div>
+                    <h2 className="text-lg font-medium text-gray-900 mb-1">Generating your hardware</h2>
+                    <p className="text-sm text-gray-500 mb-8">{steps[step]}…</p>
+                    <div className="flex flex-col gap-2.5 w-full max-w-xs text-left">
+                        {steps.map((s, i) => (
+                            <div key={i} className={`flex items-center gap-2.5 text-xs transition-all duration-300 ${i < step ? 'text-gray-400' : i === step ? 'text-gray-900 font-medium' : 'text-gray-300'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${i < step ? 'bg-gray-400' : i === step ? 'bg-black' : 'bg-gray-200'}`}></span>
+                                {s}
+                            </div>
+                        ))}
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-8">This can take a little while. Hang tight.</p>
+                </div>
+            );
+        };
+
+        const BOMTable = ({ csvData }) => {
+            if (!csvData) return <div className="text-gray-300 text-sm p-8 text-center bg-white rounded-xl border border-gray-200">BOM will appear here</div>;
+            const rows = csvData.split('\n').filter(r => r.trim()); const headers = rows[0]?.split(',') || []; const data = rows.slice(1);
+            return (
+                <div className="overflow-auto max-h-[400px] border border-gray-200 rounded-xl bg-white">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 sticky top-0"><tr>{headers.map((h, i) => <th key={i} className="text-left px-4 py-3 font-medium text-gray-700 border-b text-xs uppercase tracking-wider">{h}</th>)}</tr></thead>
+                        <tbody>{data.map((row, idx) => { const cols = row.split(','); return <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">{cols.map((col, i) => <td key={i} className="px-4 py-3 text-gray-600 text-sm">{col}</td>)}</tr>; })}</tbody>
+                    </table>
+                </div>
+            );
+        };
+
+        const BuildOrderModal = ({ isOpen, onClose, currentOutput }) => {
+            const [formData, setFormData] = useState({ from_name: '', customer_email: '', customer_phone: '', customer_location: '', preferred_contact: 'email', quantity: 1, special_requests: '' });
+            const [isSubmitting, setIsSubmitting] = useState(false); const [submitSuccess, setSubmitSuccess] = useState(false); const [error, setError] = useState(null);
+            const handleSubmit = async (e) => {
+                e.preventDefault(); setIsSubmitting(true); setError(null);
+                try {
+                    if (window.ENV.EMAILJS_PUBLIC_KEY === 'YOUR_PUBLIC_KEY_HERE') throw new Error('Please configure EmailJS credentials in the code');
+                    const baseUrl = window.ENV.API_URL; const files = currentOutput?.downloads?.individual_files || {};
+                    const templateParams = { from_name: formData.from_name, customer_email: formData.customer_email, customer_phone: formData.customer_phone || 'Not provided', customer_location: formData.customer_location || 'Not provided', preferred_contact: formData.preferred_contact, device_name: currentOutput?.device_name || 'Unnamed Device', quantity: formData.quantity, generated_at: new Date(currentOutput?.generated_at || Date.now()).toLocaleString(), special_requests: formData.special_requests || 'None', original_prompt: currentOutput?.original_prompt || 'No prompt available', stl_url: files.stl?.url ? (files.stl.url.startsWith('http') ? files.stl.url : `${baseUrl}${files.stl.url}`) : 'Not available', scad_url: files.scad?.url ? (files.scad.url.startsWith('http') ? files.scad.url : `${baseUrl}${files.scad.url}`) : 'Not available', circuit_url: files.circuit?.url ? (files.circuit.url.startsWith('http') ? files.circuit.url : `${baseUrl}${files.circuit.url}`) : 'Not available', firmware_url: files.firmware?.url ? (files.firmware.url.startsWith('http') ? files.firmware.url : `${baseUrl}${files.firmware.url}`) : 'Not available', bom_url: files.bom?.url ? (files.bom.url.startsWith('http') ? files.bom.url : `${baseUrl}${files.bom.url}`) : 'Not available', reply_to: formData.customer_email };
+                    const response = await emailjs.send(window.ENV.EMAILJS_SERVICE_ID, window.ENV.EMAILJS_TEMPLATE_ID, templateParams);
+                    console.log('Build order sent:', response); setSubmitSuccess(true);
+                    if (typeof track !== 'undefined') track('submit_build_order', { 
+                        device_name: currentOutput?.device_name, 
+                        quantity: formData.quantity,
+                        preferred_contact: formData.preferred_contact,
+                        has_special_requests: !!formData.special_requests
+                    });
+                    setTimeout(() => { setSubmitSuccess(false); onClose(); setFormData({ from_name: '', customer_email: '', customer_phone: '', customer_location: '', preferred_contact: 'email', quantity: 1, special_requests: '' }); }, 2000);
+                } catch (err) { console.error('Build order error:', err); setError(err.message || 'Failed to submit build order'); 
+                    if (typeof track !== 'undefined') track('submit_build_order_error', { error: err.message || 'Failed to submit build order' }); 
+                } finally { setIsSubmitting(false); }
+            };
+            if (!isOpen) return null;
+            return (
+                <div className={`modal-overlay fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm ${isOpen ? 'active' : ''}`}>
+                    <div className="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-auto">
+                        {!submitSuccess ? (
+                            <>
+                                <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white">
+                                    <div><h3 className="text-lg font-semibold text-gray-900">Build Your Device</h3><p className="text-sm text-gray-500 mt-1">Submit order for hardware fulfillment</p></div>
+                                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                </div>
+                                <form onSubmit={handleSubmit} className="p-6">
+                                    {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{error}</div>}
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Name *</label><input type="text" required value={formData.from_name} onChange={(e) => setFormData({...formData, from_name: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm" placeholder="John Doe" /></div>
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Email *</label><input type="email" required value={formData.customer_email} onChange={(e) => setFormData({...formData, customer_email: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm" placeholder="you@example.com" /></div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Phone</label><input type="tel" value={formData.customer_phone} onChange={(e) => setFormData({...formData, customer_phone: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm" placeholder="+1 234 567 890" /></div>
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Location</label><input type="text" value={formData.customer_location} onChange={(e) => setFormData({...formData, customer_location: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm" placeholder="City, Country" /></div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Preferred Contact</label><select value={formData.preferred_contact} onChange={(e) => setFormData({...formData, preferred_contact: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm"><option value="email">Email</option><option value="phone">Phone</option><option value="whatsapp">WhatsApp</option></select></div>
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label><input type="number" min="1" required value={formData.quantity} onChange={(e) => setFormData({...formData, quantity: parseInt(e.target.value) || 1})} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all text-sm" /></div>
+                                        </div>
+                                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Special Requests</label><textarea value={formData.special_requests} onChange={(e) => setFormData({...formData, special_requests: e.target.value})} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all resize-none text-sm" placeholder="Any specific requirements, customization needs..." /></div>
+                                        <div className="bg-gray-50 rounded-lg p-4 text-xs text-gray-600 space-y-2"><p className="font-medium text-gray-900">Order Summary:</p><div className="grid grid-cols-2 gap-2"><span>Device:</span><span className="font-medium">{currentOutput?.device_name || 'Unnamed'}</span><span>Files included:</span><span>STL, SCAD, Circuit, Firmware, BOM</span></div></div>
+                                    </div>
+                                    <div className="mt-6 flex gap-3">
+                                        <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm">Cancel</button>
+                                        <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">{isSubmitting ? <><div className="flex gap-1"><span className="loading-dot w-1 h-1 bg-white rounded-full"></span><span className="loading-dot w-1 h-1 bg-white rounded-full"></span><span className="loading-dot w-1 h-1 bg-white rounded-full"></span></div>Submitting...</> : <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>Place Build Order</>}</button>
+                                    </div>
+                                </form>
+                            </>
+                        ) : (
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 checkmark-animate"><svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div>
+                                <h3 className="text-xl font-semibold text-gray-900 mb-2">Order Submitted!</h3>
+                                <p className="text-gray-600 text-sm">We will contact you shortly to confirm your build.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const { token, user, credits, fetchProfile } = useAuth();
+            const [drawerOpen, setDrawerOpen] = useState(false);
+            const [input, setInput] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [currentOutput, setCurrentOutput] = useState(null);
+            const [history, setHistory] = useState([]);
+            const [activeTab, setActiveTab] = useState('scad');
+            const [error, setError] = useState(null);
+            const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
+            const [storageReady, setStorageReady] = useState(false);
+            const [showAuth, setShowAuth] = useState(false);
+            const [authTab, setAuthTab] = useState('login');
+            const [toast, setToast] = useState(null);
+
+            // Generation backend base URL.
+            //  - Default: Modal-hosted AI hardware generation service.
+            //  - Auth / payment / profile backend: window.ENV.API_URL (Render HaaS).
+            //  - Override for a separate or stub endpoint via:
+            //      localStorage.setItem('pitchaprint_generate_url', 'https://your-backend')
+            const GEN_BASE = (localStorage.getItem('pitchaprint_generate_url') || '').replace(/\/+$/, '');
+            const GENERATE_API_URL = GEN_BASE + "/api/generate";
+
+            useEffect(() => {
+                Storage.init().then(() => { setStorageReady(true); loadHistory(); }).catch(err => { console.error('Storage init failed:', err); setError('Failed to initialize storage'); });
+            }, []);
+
+            useEffect(() => { if (window.ENV.EMAILJS_PUBLIC_KEY && window.ENV.EMAILJS_PUBLIC_KEY !== 'YOUR_PUBLIC_KEY_HERE') emailjs.init(window.ENV.EMAILJS_PUBLIC_KEY); }, []);
+
+            const loadHistory = async () => { try { const h = await Storage.getHistory(); setHistory(h); } catch (err) { console.error('Failed to load history:', err); } };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault(); 
+                if (!input.trim() || loading || !storageReady) return;
+                if (!token) { 
+                    setShowAuth(true); 
+                    setAuthTab('login'); 
+                    setToast({ message: 'Please sign in to generate designs', type: 'info' }); 
+                    return; 
+                }
+                setLoading(true); 
+                setError(null);
+                try {
+                    const response = await fetch(GENERATE_API_URL, { 
+                        method: 'POST', 
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Accept': 'application/json', 
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {}) 
+                        }, 
+                        body: JSON.stringify({ prompt: input }) 
+                    });
+                    
+                    // NEW: Handle 402 Payment Required
+                    if (response.status === 402) {
+                        setError('Insufficient credits. Please buy more credits via your profile menu.');
+                        setToast({ message: 'Insufficient credits. Top up to continue.', type: 'error' });
+                        if (typeof track !== 'undefined') track('insufficient_credits', { prompt_length: input.length });
+                        setLoading(false);
+                        return;
+                    }
+                    
+                    if (response.status === 401 || response.status === 403) { 
+                        setError('Session expired. Please sign in again.'); 
+                        setShowAuth(true); 
+                        setLoading(false); 
+                        return; 
+                    }
+                    if (!response.ok) throw new Error('Generation failed');
+                    
+                    const data = await response.json();
+                    
+                    // NEW: Show credit toast if available
+                    if (data.credits) {
+                        const msg = data.credits.warning 
+                            ? `Used ${data.credits.deducted} credits. ${data.credits.remaining.toLocaleString()} left. ${data.credits.warning}`
+                            : `Used ${data.credits.deducted} credits (${data.credits.tokens_used.toLocaleString()} tokens). ${data.credits.remaining.toLocaleString()} left.`;
+                        setToast({ message: msg, type: data.credits.warning ? 'error' : 'info' });
+                        if (typeof track !== 'undefined') track('credits_deducted', { 
+                            deducted: data.credits.deducted, 
+                            remaining: data.credits.remaining, 
+                            tokens_used: data.credits.tokens_used,
+                            warning: !!data.credits.warning
+                        });
+                    }
+                    
+                    const baseUrl = GEN_BASE;
+                    const fullUrl = (url) => url && (url.startsWith('http') ? url : `${baseUrl}${url}`);
+                    const files = (data.downloads && data.downloads.individual_files) || {};
+                    const fetchText = async (m) => { if (!m || !m.url) return null; const r = await fetch(fullUrl(m.url)); return r.ok ? await r.text() : null; };
+                    const fetchJson = async (m) => { if (!m || !m.url) return null; const r = await fetch(fullUrl(m.url)); return r.ok ? await r.json() : null; };
+                    const looksLikeJscad = (t) => !!t && /@jscad\/modeling|module\.exports|function\s+main\s*\(/.test(t);
+
+                    const output = { ...data, stlData: null, jscadContent: null, scadContent: null, circuitData: null, firmwareContent: null, bomContent: null, instructionsContent: null, original_prompt: input };
+
+                    // ---- 3D model: prefer JSCAD (new format), then OpenSCAD-slot-holding-JSCAD, then binary STL (old format) ----
+                    const jscadText = await fetchText(files.jscad);
+                    const scadText = await fetchText(files.scad);
+                    if (jscadText) output.jscadContent = jscadText;
+                    else if (looksLikeJscad(scadText)) output.jscadContent = scadText;
+                    else output.scadContent = scadText;
+
+                    // ---- instructions: dedicated field (new format) ----
+                    output.instructionsContent = await fetchText(files.instructions || files.instructables);
+
+                    // ---- the `stl` slot: new format carries instructable TEXT here; old format carries the binary STL model ----
+                    if (files.stl && files.stl.url) {
+                        const r = await fetch(fullUrl(files.stl.url));
+                        if (r.ok) {
+                            const buf = await r.arrayBuffer();
+                            const head = new Uint8Array(buf.slice(0, Math.min(512, buf.byteLength)));
+                            let printable = 0; for (let i = 0; i < head.length; i++) { const b = head[i]; if (b === 9 || b === 10 || b === 13 || (b >= 32 && b < 127)) printable++; }
+                            const headText = new TextDecoder('utf-8', { fatal: false }).decode(head);
+                            const isStl = /facet\s+normal/i.test(headText) || (head.length > 0 && printable / head.length < 0.85);
+                            if (isStl) { if (buf.byteLength && !output.jscadContent) output.stlData = buf; }
+                            else if (!output.instructionsContent) { output.instructionsContent = new TextDecoder().decode(buf); }
+                        }
+                    }
+
+                    // ---- circuit / firmware / bom ----
+                    output.circuitData = await fetchJson(files.circuit);
+                    const firmwareText = await fetchText(files.firmware);
+                    output.firmwareContent = firmwareText ? stripCodeFence(firmwareText) : null;
+                    output.bomContent = await fetchText(files.bom);
+
+                    if (!output.jscadContent && !(output.stlData instanceof ArrayBuffer)) throw new Error('No 3D model found in the generation response');
+                    await Storage.addDesign(input, output);
+                    setCurrentOutput(output); 
+                    await loadHistory(); 
+                    setInput(''); 
+                    await fetchProfile();
+                    if (typeof track !== 'undefined') track('generate_design', { 
+                        device_name: output.device_name, 
+                        has_circuit: !!output.circuitData,
+                        has_firmware: !!output.firmwareContent,
+                        has_bom: !!output.bomContent,
+                        has_instructions: !!output.instructionsContent,
+                        has_jscad: !!output.jscadContent,
+                        has_stl: output.stlData instanceof ArrayBuffer,
+                        prompt_length: input.length
+                    });
+                } catch (err) { 
+                    console.error('Error:', err); 
+                    setError(err.message); 
+                    if (typeof track !== 'undefined') track('generate_design_error', { error: err.message, prompt_length: input.length });
+                } finally { 
+                    setLoading(false); 
+                }
+            };
+
+            const loadHistoryItem = async (item) => { 
+                try { 
+                    const fullEntry = await Storage.loadDesign(item.id); 
+                    if (fullEntry && fullEntry.output) { 
+                        setCurrentOutput(fullEntry.output); 
+                        setDrawerOpen(false); 
+                        if (typeof track !== 'undefined') track('load_history_item', { device_name: fullEntry.output.device_name, id: item.id });
+                    } else { 
+                        setError('Design not found in storage'); 
+                    } 
+                } catch (err) { 
+                    console.error('Error loading history item:', err); 
+                    setError('Failed to load design from history'); 
+                } 
+            };
+            
+            const deleteHistoryItem = async (id, e) => { 
+                e.stopPropagation(); 
+                if (!confirm('Delete this design?')) return; 
+                try { 
+                    await Storage.deleteDesign(id); 
+                    await loadHistory(); 
+                    if (typeof track !== 'undefined') track('delete_history_item', { id: id });
+                } catch (err) { 
+                    console.error('Delete failed:', err); 
+                } 
+            };
+            
+            const clearAllHistory = async () => { 
+                if (!confirm('Clear all history?')) return; 
+                try { 
+                    await Storage.clearHistory(); 
+                    setHistory([]); 
+                    if (typeof track !== 'undefined') track('clear_history');
+                } catch (err) { 
+                    console.error('Clear failed:', err); 
+                } 
+            };
+            
+            const downloadFile = (content, filename, type) => { 
+                const blob = new Blob([content], { type }); 
+                const url = URL.createObjectURL(blob); 
+                const a = document.createElement('a'); 
+                a.href = url; 
+                a.download = filename; 
+                a.click(); 
+                URL.revokeObjectURL(url); 
+            };
+            
+            const triggerDownload = (data, filename, type) => {
+                const blob = new Blob([data], { type });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            const downloadSTL = () => {
+                const name = `${currentOutput?.device_name || 'model'}.stl`;
+                // Old format: a binary STL is already in hand.
+                if (currentOutput?.stlData instanceof ArrayBuffer) { triggerDownload(currentOutput.stlData, name, 'application/sla'); return; }
+                // New format: convert the JSCAD model to STL in the browser via the embedded viewer.
+                if (!currentOutput?.jscadContent) return;
+                setActiveTab('scad'); // make sure the viewer iframe is mounted
+                let done = false;
+                const onExported = (e) => {
+                    if (!e.data || e.data.type !== 'stl-exported' || !e.data.buffer) return;
+                    done = true;
+                    window.removeEventListener('message', onExported);
+                    triggerDownload(e.data.buffer, e.data.name || name, 'application/octet-stream');
+                };
+                window.addEventListener('message', onExported);
+                let tries = 0;
+                const ask = () => {
+                    if (done) return;
+                    const ifr = document.querySelector('iframe[title="3D Viewer"]');
+                    if (ifr && ifr.contentWindow) { try { ifr.contentWindow.postMessage({ type: 'export-stl', name }, '*'); } catch (err) {} }
+                    tries++;
+                    if (tries < 25) setTimeout(ask, 400);
+                    else window.removeEventListener('message', onExported);
+                };
+                setTimeout(ask, 300);
+            };
+
+            return (
+                <div className="min-h-screen bg-white">
+                    <header className="minimal-header">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setDrawerOpen(true)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+                            <h1 className="text-lg font-bold tracking-tight">pitchaprint</h1>
+                            {token && credits > 0 && <span className="balance-badge hidden sm:inline-flex"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>{credits.toLocaleString()}</span>}
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <a href="about_us.html" className="text-sm text-gray-600 hover:text-black transition-colors">About</a>
+                            {currentOutput && <button onClick={() => { setIsBuildModalOpen(true); if (typeof track !== 'undefined') track('open_build_order', { device_name: currentOutput?.device_name, source: 'header' }); }} className="px-3 py-1.5 bg-black text-white text-xs font-medium rounded-lg hover:bg-gray-800 transition-colors">Build</button>}
+                            {user ? <UserMenu /> : <button onClick={() => { setShowAuth(true); setAuthTab('login'); if (typeof track !== 'undefined') track('click_sign_in'); }} className="text-sm font-medium text-gray-900 hover:text-black transition-colors">Sign In</button>}
+                        </div>
+                    </header>
+
+                    <div className={`history-drawer ${drawerOpen ? 'open' : ''}`}>
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                            <h2 className="font-medium text-sm text-gray-500 uppercase tracking-wider">History</h2>
+                            <button onClick={() => setDrawerOpen(false)} className="p-1 hover:bg-gray-100 rounded"><svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        </div>
+                        <div className="overflow-auto h-[calc(100vh-60px)]">
+                            {history.length === 0 ? <div className="p-6 text-sm text-gray-400 text-center">No designs yet</div> : (
+                                <>
+                                    <div className="p-2"><button onClick={clearAllHistory} className="w-full py-2 text-xs text-red-500 hover:bg-red-50 rounded transition-colors">Clear history</button></div>
+                                    {history.map((item) => (
+                                        <div key={item.id} className="group relative w-full text-left p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => loadHistoryItem(item)}>
+                                            <div className="font-medium text-sm text-gray-900 truncate pr-8">{item.input}</div>
+                                            <div className="text-xs text-gray-400 mt-1">{new Date(item.timestamp).toLocaleDateString()}</div>
+                                            <button onClick={(e) => deleteHistoryItem(item.id, e)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all" title="Delete"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                                        </div>
+                                    ))}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    {drawerOpen && <div className="fixed inset-0 bg-black/20 z-30" style={{top: '60px'}} onClick={() => setDrawerOpen(false)} />}
+
+                    <main className="pt-24 pb-32 px-6 max-w-5xl mx-auto">
+                        {loading ? <LoadingScreen /> : !currentOutput ? (
+                            <div className="flex flex-col items-center justify-center min-h-[50vh]">
+                                <h2 className="text-2xl font-light text-center text-gray-900 mb-2 lowercase">design hardware from text</h2>
+                                <p className="text-xs text-gray-400">tunajua uko blank , uliza ; - P</p>
+                                {!token && <button onClick={() => { setShowAuth(true); setAuthTab('signup'); if (typeof track !== 'undefined') track('click_get_started'); }} className="mt-6 px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors">Get Started</button>}
+                            </div>
+                        ) : (
+                            <div className="space-y-6 animate-in fade-in duration-500">
+                                <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                                    <div><h2 className="text-lg font-medium">{currentOutput.device_name}</h2><p className="text-xs text-gray-400 mt-1">{new Date(currentOutput.generated_at).toLocaleString()}</p></div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => { setIsBuildModalOpen(true); if (typeof track !== 'undefined') track('open_build_order', { device_name: currentOutput?.device_name, source: 'results' }); }} className="px-4 py-1.5 text-xs bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium">Build</button>
+                                        <button onClick={() => { downloadSTL(); if (typeof track !== 'undefined') track('download_stl', { device_name: currentOutput?.device_name }); }} className="px-3 py-1.5 text-xs border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Download STL</button>
+                                    </div>
+                                </div>
+                                <div className="flex gap-6 border-b border-gray-100">
+                                    {[{ id: 'scad', label: '3D View' }, { id: 'circuit', label: 'Circuit' }, { id: 'firmware', label: 'Firmware' }, { id: 'instructions', label: 'Instructions' }, { id: 'bom', label: 'BOM' }].map(tab => <button key={tab.id} onClick={() => { setActiveTab(tab.id); if (typeof track !== 'undefined') track('tab_switch', { tab: tab.id, device_name: currentOutput?.device_name }); }} className={`pb-3 text-sm font-medium ${activeTab === tab.id ? 'tab-active' : 'tab-inactive'}`}>{tab.label}</button>)}
+                                </div>
+                                <div className="py-4">
+                                    {activeTab === 'scad' && (
+                                        <div className="space-y-4">
+                                            {(currentOutput?.jscadContent || currentOutput?.stlData instanceof ArrayBuffer) ? <Model3DViewer stlData={currentOutput.stlData} jscadContent={currentOutput.jscadContent} deviceName={currentOutput.device_name} key={currentOutput.device_name} /> : <div className="w-full h-[400px] flex items-center justify-center bg-gray-50 rounded-xl border border-gray-200"><span className="text-gray-400 text-sm">No 3D model available</span></div>}
+                                            
+                                        </div>
+                                    )}
+                                    {activeTab === 'circuit' && <div>{currentOutput?.circuitData?.nodes ? <CircuitViewer circuitData={currentOutput.circuitData} /> : <div className="w-full h-[400px] flex items-center justify-center bg-gray-50 rounded-xl border border-gray-200"><span className="text-gray-400 text-sm">No circuit diagram available</span></div>}</div>}
+                                    {activeTab === 'firmware' && <div><FirmwareEditor code={currentOutput?.firmwareContent || ''} /><div className="mt-4 flex justify-end"><button onClick={() => { downloadFile(currentOutput.firmwareContent, `${currentOutput.device_name}.ino`, 'text/plain'); if (typeof track !== 'undefined') track('download_firmware', { device_name: currentOutput?.device_name }); }} className="text-xs text-gray-600 hover:text-black flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>Download .ino</button></div></div>}
+                                    {activeTab === 'instructions' && (() => { const instr = currentOutput?.instructionsContent || buildFallbackInstructions(currentOutput); return <div><InstructionsViewer content={instr} />{instr && <div className="mt-4 flex justify-end"><button onClick={() => { downloadFile(instr, `${currentOutput.device_name}_instructions.txt`, 'text/plain'); if (typeof track !== 'undefined') track('download_instructions', { device_name: currentOutput?.device_name }); }} className="text-xs text-gray-600 hover:text-black flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>Download</button></div>}</div>; })()}
+                                    {activeTab === 'bom' && <div><BOMTable csvData={currentOutput?.bomContent || null} /><div className="mt-4 flex justify-end"><button onClick={() => { downloadFile(currentOutput.bomContent, `${currentOutput.device_name}_BOM.csv`, 'text/csv'); if (typeof track !== 'undefined') track('download_bom', { device_name: currentOutput?.device_name }); }} className="text-xs text-gray-600 hover:text-black flex items-center gap-1"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>Download CSV</button></div></div>}
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-gray-100 p-4 z-40">
+                        <div className="max-w-2xl mx-auto">
+                            <form onSubmit={handleSubmit} className="relative">
+                                <div className="input-line flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3 border border-gray-200 focus-within:border-gray-400 transition-colors">
+                                    <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={currentOutput ? "Design another device..." : "Describe your hardware device..."} className="flex-1 bg-transparent outline-none text-sm placeholder:text-gray-400" disabled={loading || !storageReady} />
+                                    <button type="submit" disabled={loading || !input.trim() || !storageReady} className="p-2 bg-black text-white rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-800 transition-colors">
+                                        {loading ? <div className="flex gap-1"><span className="loading-dot w-1 h-1 bg-white rounded-full"></span><span className="loading-dot w-1 h-1 bg-white rounded-full"></span><span className="loading-dot w-1 h-1 bg-white rounded-full"></span></div> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>}
+                                    </button>
+                                </div>
+                                {error && <div className="absolute -top-8 left-0 right-0 text-center text-xs text-red-500">{error}</div>}
+                            </form>
+                        </div>
+                    </div>
+
+                    <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} initialTab={authTab} />
+                    <BuildOrderModal isOpen={isBuildModalOpen} onClose={() => setIsBuildModalOpen(false)} currentOutput={currentOutput} />
+                    {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AuthProvider><App /></AuthProvider>);
+    </script>
+</body>
+</html>

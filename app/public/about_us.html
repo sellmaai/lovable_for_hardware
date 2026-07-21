@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - pichaprint</title>
+
+    <!-- Vercel Analytics -->
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background: #fafafa; color: #111; -webkit-font-smoothing: antialiased; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+
+        .minimal-header {
+            position: fixed; top: 0; left: 0; right: 0; height: 60px;
+            background: rgba(255,255,255,0.8); backdrop-filter: blur(12px);
+            border-bottom: 1px solid #eee;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; z-index: 50;
+        }
+
+        /* faint grid that fades out, behind the hero */
+        .hero-grid {
+            background-image:
+                linear-gradient(to right, rgba(0,0,0,0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px);
+            background-size: 46px 46px;
+            -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 0%, #000 35%, transparent 78%);
+                    mask-image: radial-gradient(ellipse 75% 65% at 50% 0%, #000 35%, transparent 78%);
+        }
+
+        .headline-gradient {
+            background: linear-gradient(180deg, #0a0a0a 0%, #525252 130%);
+            -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent; color: transparent;
+        }
+
+        .card {
+            background: #fff; border: 1px solid #ececec; border-radius: 18px;
+            transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 36px -16px rgba(0,0,0,0.22);
+            border-color: #d6d6d6;
+        }
+
+        .icon-tile {
+            width: 44px; height: 44px; border-radius: 12px;
+            background: #111; color: #fff;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .step-num {
+            font-variant-numeric: tabular-nums;
+            font-weight: 800; font-size: 2.25rem; line-height: 1;
+            color: #e5e5e5;
+        }
+
+        .mvp-badge {
+            background: #fef08a; color: #854d0e;
+            padding: 0.3rem 0.75rem; border-radius: 9999px;
+            font-size: 0.75rem; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+        }
+
+        /* reveal-on-scroll */
+        .reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s ease-out, transform .7s ease-out; }
+        .reveal.show { opacity: 1; transform: translateY(0); }
+
+        /* success modal */
+        .modal-overlay {
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+            position: fixed; inset: 0; z-index: 60;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content {
+            transform: translateY(20px) scale(0.95); transition: transform 0.3s ease;
+            background: white; border-radius: 16px; padding: 2rem; max-width: 400px; width: 90%; text-align: center;
+        }
+        .modal-overlay.active .modal-content { transform: translateY(0) scale(1); }
+        @keyframes checkmark { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        .checkmark-animate { animation: checkmark 0.5s ease-out; }
+    </style>
+</head>
+<body>
+    <header class="minimal-header">
+        <div class="flex items-center gap-4">
+            <a href="index.html" class="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Back to app">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+            </a>
+            <a href="index.html" class="text-lg font-bold tracking-tight hover:opacity-70 transition-opacity">pichaprint</a>
+        </div>
+        <a href="#waitlist" class="px-4 py-2 bg-black text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors">
+            join waitlist
+        </a>
+    </header>
+
+    <!-- ===================== HERO ===================== -->
+    <section class="relative overflow-hidden">
+        <div class="hero-grid absolute inset-0 pointer-events-none"></div>
+        <div class="relative max-w-5xl mx-auto px-6 pt-36 pb-20 md:pt-44 md:pb-28 text-center">
+            <div class="reveal inline-flex items-center gap-2 px-3 py-1 mb-8 rounded-full border border-gray-200 bg-white/70 text-xs font-medium tracking-wide text-gray-500">
+                <span class="w-1.5 h-1.5 rounded-full bg-black"></span>
+                about pichaprint
+            </div>
+            <h1 class="reveal headline-gradient text-4xl md:text-6xl font-extrabold tracking-tight leading-[1.05] max-w-3xl mx-auto">
+                from idea to prototype.
+            </h1>
+            <p class="reveal text-base md:text-lg text-gray-500 leading-relaxed max-w-2xl mx-auto mt-7">
+                pichaprint turns a plain-english description into a complete design — a 3D-printable enclosure,
+                a circuit diagram, firmware, and a bill of materials. no CAD, no EE degree, no friction.
+            </p>
+            <div class="reveal flex flex-col sm:flex-row items-center justify-center gap-3 mt-10">
+                <a href="#waitlist" class="w-full sm:w-auto px-7 py-3 bg-black text-white rounded-xl font-semibold hover:bg-gray-800 transition-colors">
+                    join the waitlist
+                </a>
+                <a href="index.html" class="w-full sm:w-auto px-7 py-3 bg-white border border-gray-200 text-gray-800 rounded-xl font-semibold hover:border-gray-400 transition-colors inline-flex items-center justify-center gap-2">
+                    try the generator
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <main class="px-6 pb-28">
+        <!-- ===================== HOW IT WORKS (idea -> prototype) ===================== -->
+        <section class="max-w-5xl mx-auto pt-4 pb-10 md:pt-8 md:pb-16">
+            <div class="reveal text-center mb-12">
+                <p class="text-xs uppercase tracking-[0.2em] text-gray-400 mb-3">how it works</p>
+                <h2 class="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">one prompt, start to finish.</h2>
+            </div>
+            <div class="reveal flex flex-col md:flex-row items-stretch justify-center gap-4 md:gap-0">
+                <div class="card p-6 md:flex-1 md:max-w-xs">
+                    <div class="text-xs font-mono uppercase tracking-[0.15em] text-gray-400 mb-3">idea</div>
+                    <p class="text-sm text-gray-600 leading-relaxed">you have an idea or a project you want to build.</p>
+                </div>
+                <div class="flex items-center justify-center text-gray-300 md:px-2 py-1">
+                    <svg class="w-6 h-6 rotate-90 md:rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </div>
+                <div class="card p-6 md:flex-1 md:max-w-xs">
+                    <div class="text-xs font-mono uppercase tracking-[0.15em] text-gray-400 mb-3">prompt</div>
+                    <p class="text-sm text-gray-600 leading-relaxed">pitch-a-print generates your enclosure, circuit, firmware and instructions on how to assemble.</p>
+                </div>
+                <div class="flex items-center justify-center text-gray-300 md:px-2 py-1">
+                    <svg class="w-6 h-6 rotate-90 md:rotate-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </div>
+                <div class="card p-6 md:flex-1 md:max-w-xs">
+                    <div class="text-xs font-mono uppercase tracking-[0.15em] text-gray-400 mb-3">prototype</div>
+                    <p class="text-sm text-gray-600 leading-relaxed">your idea is printed, the components are sourced and shipped to you to assemble.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================== WHAT YOU GET ===================== -->
+        <section class="max-w-5xl mx-auto py-10 md:py-16">
+            <div class="reveal text-center mb-12">
+                <p class="text-xs uppercase tracking-[0.2em] text-gray-400 mb-3">what you get</p>
+                <h2 class="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">one prompt. four ready-to-build pieces.</h2>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="reveal card p-6">
+                    <div class="icon-tile mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" /></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-1.5">3D enclosure</h3>
+                    <p class="text-sm text-gray-500 leading-relaxed">an editable, multi-part casing you can orbit, explode and export to STL — ready for any printer.</p>
+                </div>
+                <div class="reveal card p-6">
+                    <div class="icon-tile mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5" stroke-width="1.6"/><path stroke-linecap="round" stroke-width="1.6" d="M10 4v3M14 4v3M10 17v3M14 17v3M4 10h3M4 14h3M17 10h3M17 14h3"/></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-1.5">circuit diagram</h3>
+                    <p class="text-sm text-gray-500 leading-relaxed">a clear block diagram of every component and how it wires together.</p>
+                </div>
+                <div class="reveal card p-6">
+                    <div class="icon-tile mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 9l-3 3 3 3m8-6l3 3-3 3M13.5 6l-3 12" /></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-1.5">firmware</h3>
+                    <p class="text-sm text-gray-500 leading-relaxed">working, readable code generated for your board — flash it and go.</p>
+                </div>
+                <div class="reveal card p-6">
+                    <div class="icon-tile mb-5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-1.5">bill of materials</h3>
+                    <p class="text-sm text-gray-500 leading-relaxed">every part, quantity and price — so you know exactly what to buy.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================== MISSION ===================== -->
+        <section class="max-w-4xl mx-auto py-10 md:py-20">
+            <div class="reveal card p-10 md:p-14 text-center" style="background:linear-gradient(180deg,#ffffff 0%,#f6f6f6 100%);">
+                <p class="text-xs uppercase tracking-[0.2em] text-gray-400 mb-6">our mission</p>
+                <p class="text-xl md:text-2xl font-medium leading-relaxed text-gray-800">
+                    our goal is simple: get anyone into hardware prototyping. whether you're a student, artist,
+                    entrepreneur, or curious tinkerer, you should be able to bring your ideas to life
+                    <span class="text-gray-900 font-semibold">without friction.</span>
+                </p>
+            </div>
+        </section>
+
+        <!-- ===================== WAITLIST ===================== -->
+        <section id="waitlist" class="max-w-md mx-auto py-10 md:py-16 scroll-mt-24">
+            <div class="reveal text-center mb-8">
+                <p class="text-xs uppercase tracking-[0.2em] text-gray-400 mb-3">join the waitlist</p>
+                <h2 class="text-2xl md:text-3xl font-bold tracking-tight text-gray-900 mb-3">be first in line.</h2>
+                <p class="text-gray-500 text-base leading-relaxed">
+                    be the first to know about new features and when we launch our hardware fulfillment service.
+                </p>
+            </div>
+
+            <form id="waitlist-form" class="space-y-3">
+                <input type="text" id="name" required placeholder="your name"
+                    class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-base">
+                <input type="email" id="email" required placeholder="your@email.com"
+                    class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-base">
+                <select id="interest"
+                    class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-base text-gray-600">
+                    <option value="">what interests you most?</option>
+                    <option value="personal">personal projects</option>
+                    <option value="education">education/teaching</option>
+                    <option value="startup">startup/commercial use</option>
+                    <option value="research">research</option>
+                    <option value="curious">just curious</option>
+                    <option value="other">other</option>
+                </select>
+                <button type="submit" id="submit-btn"
+                    class="w-full py-3 bg-black text-white rounded-xl font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-base">
+                    join waitlist
+                </button>
+            </form>
+
+            <div class="mt-10 pt-8 border-t border-gray-100">
+                <div class="flex items-center gap-3 text-sm text-gray-500 mb-3">
+                    <div class="mvp-badge">
+                        <div class="w-2 h-2 bg-yellow-600 rounded-full animate-pulse"></div>
+                        <span>currently in MVP</span>
+                    </div>
+                </div>
+                <p class="text-base text-gray-600 leading-relaxed pl-5 border-l-2 border-gray-200">
+                    we are simply on our early stage of MVP and we are looking to improve it based on your input and feedback.
+                </p>
+            </div>
+        </section>
+
+        <!-- ===================== CONTACT ===================== -->
+        <section class="max-w-5xl mx-auto pt-12 mt-4 border-t border-gray-100 text-center">
+            <p class="text-gray-400 text-xs uppercase tracking-[0.2em] mb-2">questions or feedback?</p>
+            <a href="mailto:thatblankengineering@gmail.com" class="text-base text-gray-700 hover:text-black transition-colors font-medium">thatblankengineering@gmail.com</a>
+            <p class="text-xs text-gray-400 mt-8">© pichaprint — the blank engineering research company</p>
+        </section>
+    </main>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 checkmark-animate">
+                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">you're on the list!</h3>
+            <p class="text-gray-600 text-base mb-6">we'll keep you updated on our progress.</p>
+            <button onclick="closeModal()" class="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-base">
+                got it
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // EmailJS Configuration - Using your existing credentials from index.html
+        const EMAILJS_CONFIG = {
+            PUBLIC_KEY: 'eEJPvAel3mOPmxCrX',
+            SERVICE_ID: 'service_4dtamkb',
+            TEMPLATE_ID: 'template_x09rf5e'  // Your waitlist template ID
+        };
+
+        // Initialize EmailJS
+        (function() {
+            emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+        })();
+
+        function showModal() {
+            document.getElementById('success-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('success-modal').classList.remove('active');
+        }
+
+        // Form submission
+        document.getElementById('waitlist-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const btn = document.getElementById('submit-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'joining...';
+
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const interest = document.getElementById('interest').value || 'not specified';
+
+            // Prepare template parameters for EmailJS
+            const templateParams = {
+                to_email: 'thatblankengineering@gmail.com',
+                from_name: name,
+                from_email: email,
+                interest: interest,
+                join_date: new Date().toLocaleString(),
+                reply_to: email
+            };
+
+            // Send email using EmailJS
+            emailjs.send(EMAILJS_CONFIG.SERVICE_ID, EMAILJS_CONFIG.TEMPLATE_ID, templateParams)
+                .then(function(response) {
+                    console.log('Email sent successfully:', response);
+
+                    // Also store locally as backup
+                    const entry = {
+                        name: name,
+                        email: email,
+                        interest: interest,
+                        date: new Date().toISOString()
+                    };
+                    const existing = JSON.parse(localStorage.getItem('pichaprint_waitlist') || '[]');
+                    existing.push(entry);
+                    localStorage.setItem('pichaprint_waitlist', JSON.stringify(existing));
+
+                    showModal();
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                    document.getElementById('waitlist-form').reset();
+                })
+                .catch(function(error) {
+                    console.error('Email failed to send:', error);
+                    alert('Failed to submit. Please try again or email us directly at thatblankengineering@gmail.com');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                });
+        });
+
+        // Close modal on backdrop click
+        document.getElementById('success-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        // Reveal-on-scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) { entry.target.classList.add('show'); observer.unobserve(entry.target); }
+            });
+        }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+        document.querySelectorAll('.reveal').forEach((el, i) => {
+            el.style.transitionDelay = (Math.min(i, 6) * 0.05) + 's';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

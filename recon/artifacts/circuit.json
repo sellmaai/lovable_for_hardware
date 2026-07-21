@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    { "id": "N1", "label": "USB Power\n5V supply\nProvides VCC", "x": 50, "y": 30, "type": "power_input", "pins": { "VCC": "5V supply", "GND": "Ground" } },
+    { "id": "N2", "label": "ESP32 DEVKITC V4\nMicrocontroller\nRuns firmware", "x": 150, "y": 30, "type": "controller", "pins": { "VCC": "5V input", "GND": "Ground", "GPIO34": "Analog input for TMP36", "GPIO21": "I2C SDA", "GPIO22": "I2C SCL" } },
+    { "id": "N3", "label": "TMP36GT9\nAnalog temperature sensor\nOutputs voltage proportional to temperature", "x": 250, "y": 10, "type": "sensor", "pins": { "VCC": "5V", "GND": "Ground", "OUT": "Analog voltage" } },
+    { "id": "N4", "label": "SSD1306 0.96\" 128x64 OLED\nI2C display\nShows temperature", "x": 250, "y": 50, "type": "display", "pins": { "VCC": "5V", "GND": "Ground", "SDA": "I2C data line", "SCL": "I2C clock line" } },
+    { "id": "N5", "label": "10kΩ 1% Resistor\nPull-up for I2C SDA\nEnsures high when idle", "x": 200, "y": 70, "type": "passive", "pins": { "A": "Connected to VCC", "B": "Connected to SDA" } },
+    { "id": "N6", "label": "0.1µF X7R Ceramic Capacitor\nDecoupling capacitor\nStabilizes VCC", "x": 150, "y": 80, "type": "passive", "pins": { "A": "Connected to VCC", "B": "Connected to GND" } }
+  ],
+  "connections": [
+    { "source": "N1", "target": "N2", "label": "VCC (5V)", "type": "power", "style": "solid", "curve": "above" },
+    { "source": "N1", "target": "N3", "label": "VCC (5V)", "type": "power", "style": "solid", "curve": "above" },
+    { "source": "N1", "target": "N4", "label": "VCC (5V)", "type": "power", "style": "solid", "curve": "above" },
+    { "source": "N1", "target": "N5", "label": "VCC to pull‑up", "type": "power", "style": "solid", "curve": "above" },
+    { "source": "N5", "target": "N4", "label": "SDA (GPIO21)", "type": "signal", "style": "solid", "curve": "below" },
+    { "source": "N1", "target": "N6", "label": "VCC to capacitor", "type": "power", "style": "solid", "curve": "above" },
+    { "source": "N6", "target": "N2", "label": "GND to capacitor", "type": "ground", "style": "solid", "curve": "above" },
+    { "source": "N3", "target": "N2", "label": "Analog OUT to GPIO34", "type": "signal", "style": "solid", "curve": "below" },
+    { "source": "N4", "target": "N2", "label": "SDA to GPIO21", "type": "data", "style": "solid", "curve": "below" },
+    { "source": "N4", "target": "N2", "label": "SCL to GPIO22", "type": "data", "style": "solid", "curve": "below" }
+  ],
+  "layout_metadata": {
+    "power_rail_top": true,
+    "signal_flow": "left-to-right",
+    "grouping": { "power": ["N1"], "controller": ["N2"], "peripherals": ["N3", "N4", "N5", "N6"] },
+    "grid_size": 50,
+    "spacing_rules": {}
+  }
+}

@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #f8fafc; font-family: 'Inter', system-ui, sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 0; }
+        .glass {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(203, 213, 225, 0.6);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.15);
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            cursor: pointer;
+            margin-top: -5px;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        input[type="number"], input[type="color"], select {
+            -webkit-appearance: none;
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: monospace;
+            width: 100%;
+        }
+        input[type="color"] {
+            padding: 0;
+            height: 24px;
+            cursor: pointer;
+        }
+        select { cursor: pointer; }
+        #drop-zone {
+            position: fixed;
+            inset: 0;
+            background: rgba(14, 165, 233, 0.08);
+            border: 3px dashed rgba(14, 165, 233, 0.4);
+            z-index: 50;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            transition: all 0.2s;
+        }
+        #drop-zone.active {
+            display: flex;
+            background: rgba(14, 165, 233, 0.15);
+            border-color: rgba(14, 165, 233, 0.7);
+        }
+        .stat-value { font-variant-numeric: tabular-nums; }
+        .btn-glass {
+            background: rgba(241, 245, 249, 0.8);
+            border: 1px solid rgba(203, 213, 225, 0.5);
+            color: #475569;
+            transition: all 0.15s ease;
+        }
+        .btn-glass:hover:not(:disabled) {
+            background: rgba(14, 165, 233, 0.15);
+            border-color: rgba(14, 165, 233, 0.5);
+            color: #0284c7;
+        }
+        .btn-active {
+            background: rgba(14, 165, 233, 0.2) !important;
+            border-color: rgba(14, 165, 233, 0.6) !important;
+            color: #0284c7 !important;
+        }
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1) !important;
+            border-color: rgba(239, 68, 68, 0.4) !important;
+            color: #dc2626 !important;
+        }
+        .param-row {
+            display: grid;
+            grid-template-columns: 50px 1fr;
+            gap: 8px;
+            align-items: center;
+        }
+        .param-label {
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 600;
+        }
+        .xyz-inputs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+        }
+        .xyz-inputs input {
+            text-align: center;
+        }
+        .dragging { cursor: grabbing !important; }
+        
+    </style>
+<base target="_blank">
+</head>
+<body class="text-slate-700">
+
+    <div id="drop-zone">
+        <div class="text-center">
+            <div class="text-4xl mb-3">📂</div>
+            <div class="text-sky-600 text-lg font-semibold tracking-wide">Drop File</div>
+            <div class="text-slate-400 text-sm mt-1">.js .jscad .stl .obj</div>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <!-- Top Bar -->
+    <div class="absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none">
+        <div class="glass rounded-xl px-4 py-2.5 pointer-events-auto flex items-center gap-3">
+            <label id="upload-control" class="cursor-pointer group flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-sky-600 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                <span>Upload</span>
+                <input type="file" id="file-input" accept=".js,.jscad,.stl,.obj" class="hidden">
+            </label>
+            <div id="upload-divider" class="h-5 w-px bg-slate-200"></div>
+            <button onclick="toggleFullscreen()" class="btn-glass rounded px-2.5 py-1 text-xs font-medium">⛶</button>
+        </div>
+        
+        <div id="error-toast" class="hidden glass rounded-lg px-4 py-3 max-w-md border-l-2 border-l-red-500 pointer-events-auto">
+            <div class="text-red-600 text-xs font-bold mb-1">Error</div>
+            <div class="text-slate-500 text-[11px] font-mono leading-relaxed" id="error-msg"></div>
+        </div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="absolute bottom-6 left-6 z-10 w-80 glass rounded-xl p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+        
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Explode</span>
+                <span id="explode-val" class="text-xs font-mono text-sky-600 stat-value">0%</span>
+            </div>
+            <input type="range" id="explode" min="0" max="100" value="0">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+            <button id="btn-wire" class="btn-glass rounded-lg py-2 px-3 text-[11px] font-semibold">Wireframe</button>
+            <button id="btn-rotate" class="btn-glass rounded-lg py-2 px-3 text-[11px] font-semibold btn-active">Orbit</button>
+        </div>
+
+        <div id="selection-panel" class="hidden pt-3 border-t border-slate-200 space-y-3">
+            <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-sky-600 uppercase tracking-wider">Part #<span id="sel-index">--</span></span>
+                <button id="btn-deselect" class="text-[10px] text-slate-400 hover:text-red-500 font-semibold">Clear</button>
+            </div>
+
+            <div class="param-row">
+                <span class="param-label">Color</span>
+                <input type="color" id="param-color" value="#cccccc">
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span class="param-label">Position</span>
+                    <span class="text-[9px] text-slate-400">mm</span>
+                </div>
+                <div class="xyz-inputs">
+                    <input type="number" id="pos-x" step="0.1" placeholder="X">
+                    <input type="number" id="pos-y" step="0.1" placeholder="Y">
+                    <input type="number" id="pos-z" step="0.1" placeholder="Z">
+                </div>
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span class="param-label">Rotation</span>
+                    <span class="text-[9px] text-slate-400">deg</span>
+                </div>
+                <div class="xyz-inputs">
+                    <input type="number" id="rot-x" step="1" placeholder="X">
+                    <input type="number" id="rot-y" step="1" placeholder="Y">
+                    <input type="number" id="rot-z" step="1" placeholder="Z">
+                </div>
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span class="param-label">Scale</span>
+                    <span class="text-[9px] text-slate-400">factor</span>
+                </div>
+                <div class="xyz-inputs">
+                    <input type="number" id="scale-x" step="0.1" value="1" placeholder="X">
+                    <input type="number" id="scale-y" step="0.1" value="1" placeholder="Y">
+                    <input type="number" id="scale-z" step="0.1" value="1" placeholder="Z">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center pt-2 border-t border-slate-100">
+                <div>
+                    <div class="text-[9px] text-slate-400">Polys</div>
+                    <div id="sel-polys" class="text-xs font-mono text-slate-600">--</div>
+                </div>
+                <div>
+                    <div class="text-[9px] text-slate-400">Verts</div>
+                    <div id="sel-verts" class="text-xs font-mono text-slate-600">--</div>
+                </div>
+                <div>
+                    <div class="text-[9px] text-slate-400">Size</div>
+                    <div id="sel-size" class="text-xs font-mono text-slate-600">--</div>
+                </div>
+            </div>
+
+
+            <button id="btn-reset-part" class="w-full btn-glass rounded py-1.5 text-[10px] font-semibold">Reset Part</button>
+            <!-- Per-part STL download -->
+            <button id="btn-download-part" class="w-full btn-glass rounded py-1.5 text-[10px] font-semibold">⬇ Download as STL</button>
+        </div>
+
+        <button id="btn-reset" class="w-full btn-glass rounded-lg py-2 text-[11px] font-semibold">Reset All</button>
+
+        <div class="pt-3 border-t border-slate-200 grid grid-cols-3 gap-2 text-center">
+            <div><div class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Parts</div><div id="stat-meshes" class="text-xs font-mono text-slate-700 mt-1 stat-value">0</div></div>
+            <div><div class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Polys</div><div id="stat-polys" class="text-xs font-mono text-slate-700 mt-1 stat-value">0</div></div>
+            <div><div class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Verts</div><div id="stat-verts" class="text-xs font-mono text-slate-700 mt-1 stat-value">0</div></div>
+        </div>
+    </div>
+
+
+    <div class="absolute bottom-6 right-6 z-10 glass rounded-lg px-3 py-1.5 text-[10px] font-mono text-slate-400 pointer-events-auto">
+        <span id="cam-info">0, 0, 0</span>
+    </div>
+
+<script type="module">
+import * as THREE from 'https://esm.sh/three@0.160.0';
+import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+import { STLLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/STLLoader.js';
+import { OBJLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/OBJLoader.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf8fafc);
+scene.fog = new THREE.Fog(0xf8fafc, 400, 1000);
+
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 2000);
+camera.position.set(140, 100, 140);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.target.set(0, 20, 0);
+
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const key = new THREE.DirectionalLight(0xffffff, 1.2);
+key.position.set(50, 120, 60);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 0.1; key.shadow.camera.far = 500;
+key.shadow.bias = -0.001;
+const d = 150;
+key.shadow.camera.left = -d; key.shadow.camera.right = d;
+key.shadow.camera.top = d; key.shadow.camera.bottom = -d;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xf0f9ff, 0.8);
+fill.position.set(-80, 60, -80); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xbae6fd, 0.6);
+rim.position.set(-60, 30, 100); scene.add(rim);
+const hemi = new THREE.HemisphereLight(0xffffff, 0xf1f5f9, 0.7);
+scene.add(hemi);
+
+const modelGroup = new THREE.Group();
+scene.add(modelGroup);
+let isWire = false;
+let autoRotate = true;
+let explodeVal = 0;
+let baseGeometries = [];
+let selectedMesh = null;
+let selectionBox = null;
+
+let isDragging = false;
+let dragPlane = new THREE.Plane();
+let dragOffset = new THREE.Vector3();
+let dragIntersection = new THREE.Vector3();
+
+const materialSolid = new THREE.MeshStandardMaterial({
+    vertexColors: false, roughness: 0.4, metalness: 0.15, side: THREE.DoubleSide
+});
+const materialWire = new THREE.MeshBasicMaterial({
+    color: 0x0ea5e9, wireframe: true, transparent: true, opacity: 0.15
+});
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+
+// track last uploaded filename for export naming
+let lastUploadedName = '';
+
+
+function flatten(arr) {
+    return arr.reduce((acc, val) => 
+        Array.isArray(val) ? acc.concat(flatten(val)) : acc.concat(val), []);
+}
+
+function rgbToHex(r, g, b) {
+    const toHex = (c) => {
+        const hex = Math.round(c * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    };
+    return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16) / 255,
+        g: parseInt(result[2], 16) / 255,
+        b: parseInt(result[3], 16) / 255
+    } : { r: 0.8, g: 0.8, b: 0.8 };
+}
+
+function amplifyColor(r, g, b) {
+    const avg = (r + g + b) / 3;
+    const boost = 1.3;
+    return [
+        Math.min(1, (r - avg) * boost + avg + 0.05),
+        Math.min(1, (g - avg) * boost + avg + 0.05),
+        Math.min(1, (b - avg) * boost + avg + 0.05)
+    ];
+}
+
+function geom3ToThree(geom, index) {
+    if (!geom || !geom.polygons) return null;
+    const verts = [];
+    const color = geom.color || [0.75, 0.77, 0.80, 1.0];
+    let [r, g, b] = color;
+    [r, g, b] = amplifyColor(r, g, b);
+    
+    geom.polygons.forEach(poly => {
+        const v = poly.vertices;
+        for (let i = 2; i < v.length; i++) {
+            verts.push(v[0][0], v[0][1], v[0][2]);
+            verts.push(v[i-1][0], v[i-1][1], v[i-1][2]);
+            verts.push(v[i][0], v[i][1], v[i][2]);
+        }
+    });
+    
+    if (verts.length === 0) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.computeVertexNormals();
+    geo.computeBoundingBox();
+    const center = new THREE.Vector3();
+    geo.boundingBox.getCenter(center);
+    geo.translate(-center.x, -center.y, -center.z);
+    
+    const mesh = new THREE.Mesh(geo, materialSolid.clone());
+    mesh.material.color.setRGB(r, g, b);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.position.copy(center);
+    mesh.userData.originalPos = center.clone();
+    mesh.userData.originalRot = new THREE.Euler(0, 0, 0);
+    mesh.userData.originalScale = new THREE.Vector3(1, 1, 1);
+    mesh.userData.originalColor = { r, g, b };
+    mesh.userData.explodeDir = center.clone().normalize();
+    mesh.userData.index = index;
+    mesh.userData.polyCount = verts.length / 9;
+    mesh.userData.vertCount = verts.length / 3;
+    const size = new THREE.Vector3();
+    geo.boundingBox.getSize(size);
+    mesh.userData.size = size;
+    return mesh;
+}
+
+// ========== FILE ROUTER ==========
+function loadFile(file) {
+    lastUploadedName = file.name;
+    const name = file.name.toLowerCase();
+    document.getElementById('error-toast').classList.add('hidden');
+
+    if (name.endsWith('.stl')) {
+        loadSTL(file);
+    } else if (name.endsWith('.obj')) {
+        loadOBJ(file);
+    } else if (name.endsWith('.js') || name.endsWith('.jscad')) {
+        loadJSCAD(file);
+    } else {
+        document.getElementById('error-msg').textContent = 'Unsupported file type: ' + file.name;
+        document.getElementById('error-toast').classList.remove('hidden');
+    }
+}
+
+// ========== STL LOADER ==========
+async function loadSTL(file) {
+    lastUploadedName = file.name;
+    try {
+        const buffer = await file.arrayBuffer();
+        loadSTLBuffer(buffer, file.name);
+    } catch (err) {
+        console.error(err);
+        document.getElementById('error-msg').textContent = 'STL load error: ' + err.message;
+        document.getElementById('error-toast').classList.remove('hidden');
+    }
+}
+
+function loadSTLBuffer(buffer, name) {
+    try {
+        if (name) lastUploadedName = name;
+        const loader = new STLLoader();
+        const geometry = loader.parse(buffer);
+        geometry.computeVertexNormals();
+        geometry.computeBoundingBox();
+
+        // Center the geometry
+        const center = new THREE.Vector3();
+        geometry.boundingBox.getCenter(center);
+        geometry.translate(-center.x, -center.y, -center.z);
+
+        clearModel();
+
+        const mesh = new THREE.Mesh(geometry, materialSolid.clone());
+        mesh.material.color.setRGB(0.75, 0.77, 0.80);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.position.copy(center);
+        mesh.userData.originalPos = center.clone();
+        mesh.userData.originalRot = new THREE.Euler(0, 0, 0);
+        mesh.userData.originalScale = new THREE.Vector3(1, 1, 1);
+        mesh.userData.originalColor = { r: 0.75, g: 0.77, b: 0.80 };
+        mesh.userData.explodeDir = center.clone().normalize();
+        mesh.userData.index = 0;
+        mesh.userData.polyCount = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
+        mesh.userData.vertCount = geometry.attributes.position.count;
+        const size = new THREE.Vector3();
+        geometry.boundingBox.getSize(size);
+        mesh.userData.size = size;
+
+        modelGroup.add(mesh);
+        baseGeometries.push(mesh);
+
+        fitCameraToModel();
+        updateStats();
+        logSerial('// Loaded STL: ' + (name || 'model.stl') + '\n');
+    } catch (err) {
+        console.error(err);
+        document.getElementById('error-msg').textContent = 'STL load error: ' + err.message;
+        document.getElementById('error-toast').classList.remove('hidden');
+    }
+}
+
+// ========== OBJ LOADER ==========
+async function loadOBJ(file) {
+    try {
+        const text = await file.text();
+        const loader = new OBJLoader();
+        const object = loader.parse(text);
+
+        clearModel();
+
+        let meshIndex = 0;
+        object.traverse(child => {
+            if (child.isMesh) {
+                const geometry = child.geometry;
+                if (!geometry.attributes.normal) geometry.computeVertexNormals();
+                geometry.computeBoundingBox();
+
+                const center = new THREE.Vector3();
+                geometry.boundingBox.getCenter(center);
+                geometry.translate(-center.x, -center.y, -center.z);
+
+                const mesh = new THREE.Mesh(geometry, materialSolid.clone());
+                const color = child.material?.color || new THREE.Color(0.75, 0.77, 0.80);
+                mesh.material.color.copy(color);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.position.copy(center);
+                mesh.userData.originalPos = center.clone();
+                mesh.userData.originalRot = new THREE.Euler(0, 0, 0);
+                mesh.userData.originalScale = new THREE.Vector3(1, 1, 1);
+                mesh.userData.originalColor = { r: color.r, g: color.g, b: color.b };
+                mesh.userData.explodeDir = center.clone().normalize();
+                mesh.userData.index = meshIndex;
+                mesh.userData.polyCount = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
+                mesh.userData.vertCount = geometry.attributes.position.count;
+                const size = new THREE.Vector3();
+                geometry.boundingBox.getSize(size);
+                mesh.userData.size = size;
+
+                modelGroup.add(mesh);
+                baseGeometries.push(mesh);
+                meshIndex++;
+            }
+        });
+
+        if (baseGeometries.length === 0) throw new Error('No meshes found in OBJ file');
+
+        fitCameraToModel();
+        updateStats();
+        logSerial('// Loaded OBJ: ' + file.name + ' (' + baseGeometries.length + ' meshes)\n');
+    } catch (err) {
+        console.error(err);
+        document.getElementById('error-msg').textContent = 'OBJ load error: ' + err.message;
+        document.getElementById('error-toast').classList.remove('hidden');
+    }
+}
+
+
+// ========== HELPERS ==========
+function clearModel() {
+    deselect();
+    while (modelGroup.children.length > 0) {
+        const c = modelGroup.children[0];
+        c.geometry?.dispose(); c.material?.dispose();
+        modelGroup.remove(c);
+    }
+    baseGeometries = [];
+}
+
+function fitCameraToModel() {
+    const box = new THREE.Box3().setFromObject(modelGroup);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    controls.target.copy(center);
+    const dist = maxDim * 1.8;
+    camera.position.set(center.x + dist, center.y + dist * 0.7, center.z + dist);
+    controls.update();
+    document.getElementById('explode').value = 0;
+    explodeVal = 0;
+}
+
+function updateStats() {
+    let polyCount = 0, vertCount = 0;
+    baseGeometries.forEach(m => {
+        polyCount += m.userData.polyCount;
+        vertCount += m.userData.vertCount;
+    });
+    document.getElementById('stat-meshes').textContent = baseGeometries.length;
+    document.getElementById('stat-polys').textContent = Math.floor(polyCount).toLocaleString();
+    document.getElementById('stat-verts').textContent = vertCount.toLocaleString();
+}
+
+async function loadJSCAD(file) {
+    lastUploadedName = file.name;
+    const text = await file.text();
+    return loadJSCADText(text, file.name);
+}
+
+async function loadJSCADText(text, name) {
+    try {
+        if (name) lastUploadedName = name;
+        document.getElementById('error-toast').classList.add('hidden');
+
+        // Shim CommonJS globals so JSCAD files that use require()/module.exports work
+        const wrapped = `
+            import * as jscadModeling from 'https://esm.sh/@jscad/modeling@2.12.0';
+            const __module = { exports: {} };
+            const module = __module;
+            const exports = __module.exports;
+            const require = (name) => {
+                if (name === '@jscad/modeling') return jscadModeling;
+                throw new Error('Unsupported require: ' + name);
+            };
+            ${text}
+            // Pick up main from module.exports if set, otherwise use the declared main
+            const __main = typeof __module.exports.main === 'function'
+                ? __module.exports.main
+                : main;
+            export { __main as main };
+        `;
+        const blob = new Blob([wrapped], { type: 'text/javascript' });
+        const url = URL.createObjectURL(blob);
+        const mod = await import(url);
+        URL.revokeObjectURL(url);
+        const result = mod.main();
+        const items = flatten(Array.isArray(result) ? result : [result]);
+        const geoms = items.filter(g => g && g.polygons);
+        if (geoms.length === 0) throw new Error('No 3D geometry returned — main() must return CSG/CAG shapes');
+        
+        clearModel();
+        
+        geoms.forEach((g, i) => {
+            const mesh = geom3ToThree(g, i);
+            if (!mesh) return;
+            modelGroup.add(mesh);
+            baseGeometries.push(mesh);
+        });
+        
+        fitCameraToModel();
+        updateStats();
+        logSerial('// Loaded JSCAD: ' + (name || 'model.jscad') + ' (' + baseGeometries.length + ' parts)\n');
+    } catch (err) {
+        console.error(err);
+        document.getElementById('error-msg').textContent = err.message;
+        document.getElementById('error-toast').classList.remove('hidden');
+        logSerial('// JSCAD load error: ' + err.message + '\n');
+    }
+}
+
+function updateExplode() {
+    if (isDragging) return;
+    baseGeometries.forEach(mesh => {
+        if (mesh === selectedMesh) return;
+        const dir = mesh.userData.explodeDir;
+        const orig = mesh.userData.originalPos;
+        const dist = orig.length();
+        const offset = (explodeVal / 100) * Math.max(dist, 20) * 2.5;
+        mesh.position.copy(orig).add(dir.clone().multiplyScalar(offset));
+    });
+    updateSelectionBox();
+}
+
+function updateSelectionBox() {
+    if (selectionBox && selectedMesh) {
+        const box = new THREE.Box3().setFromObject(selectedMesh);
+        selectionBox.box.copy(box);
+    }
+}
+
+function syncParamsToUI() {
+    if (!selectedMesh) return;
+    const m = selectedMesh;
+    const c = m.material.color;
+    
+    document.getElementById('param-color').value = rgbToHex(c.r, c.g, c.b);
+    document.getElementById('pos-x').value = m.position.x.toFixed(2);
+    document.getElementById('pos-y').value = m.position.y.toFixed(2);
+    document.getElementById('pos-z').value = m.position.z.toFixed(2);
+    document.getElementById('rot-x').value = (m.rotation.x * 180 / Math.PI).toFixed(1);
+    document.getElementById('rot-y').value = (m.rotation.y * 180 / Math.PI).toFixed(1);
+    document.getElementById('rot-z').value = (m.rotation.z * 180 / Math.PI).toFixed(1);
+    document.getElementById('scale-x').value = m.scale.x.toFixed(2);
+    document.getElementById('scale-y').value = m.scale.y.toFixed(2);
+    document.getElementById('scale-z').value = m.scale.z.toFixed(2);
+    
+    document.getElementById('sel-polys').textContent = Math.floor(m.userData.polyCount).toLocaleString();
+    document.getElementById('sel-verts').textContent = m.userData.vertCount.toLocaleString();
+    const s = m.userData.size;
+    document.getElementById('sel-size').textContent = `${s.x.toFixed(0)}×${s.y.toFixed(0)}×${s.z.toFixed(0)}`;
+    
+}
+
+function applyParamsFromUI() {
+    if (!selectedMesh) return;
+    const m = selectedMesh;
+    
+    const rgb = hexToRgb(document.getElementById('param-color').value);
+    m.material.color.setRGB(rgb.r, rgb.g, rgb.b);
+    
+    m.position.x = parseFloat(document.getElementById('pos-x').value) || 0;
+    m.position.y = parseFloat(document.getElementById('pos-y').value) || 0;
+    m.position.z = parseFloat(document.getElementById('pos-z').value) || 0;
+    
+    m.rotation.x = (parseFloat(document.getElementById('rot-x').value) || 0) * Math.PI / 180;
+    m.rotation.y = (parseFloat(document.getElementById('rot-y').value) || 0) * Math.PI / 180;
+    m.rotation.z = (parseFloat(document.getElementById('rot-z').value) || 0) * Math.PI / 180;
+    
+    m.scale.x = parseFloat(document.getElementById('scale-x').value) || 1;
+    m.scale.y = parseFloat(document.getElementById('scale-y').value) || 1;
+    m.scale.z = parseFloat(document.getElementById('scale-z').value) || 1;
+    
+    updateSelectionBox();
+}
+
+
+function selectMesh(mesh) {
+    deselect();
+    selectedMesh = mesh;
+    
+    if (!isWire) {
+        mesh.material.emissive.setHex(0x0ea5e9);
+        mesh.material.emissiveIntensity = 0.3;
+    }
+    
+    const box = new THREE.Box3().setFromObject(mesh);
+    selectionBox = new THREE.Box3Helper(box, 0x0ea5e9);
+    scene.add(selectionBox);
+    
+    document.getElementById('selection-panel').classList.remove('hidden');
+    document.getElementById('sel-index').textContent = mesh.userData.index + 1;
+    syncParamsToUI();
+}
+
+function deselect() {
+    if (selectedMesh) {
+        if (!isWire) {
+            selectedMesh.material.emissive.setHex(0x000000);
+            selectedMesh.material.emissiveIntensity = 0;
+        }
+        selectedMesh = null;
+    }
+    if (selectionBox) {
+        scene.remove(selectionBox);
+        selectionBox = null;
+    }
+    document.getElementById('selection-panel').classList.add('hidden');
+}
+
+function resetPart() {
+    if (!selectedMesh) return;
+    const m = selectedMesh;
+    m.position.copy(m.userData.originalPos);
+    m.rotation.copy(m.userData.originalRot);
+    m.scale.copy(m.userData.originalScale);
+    const c = m.userData.originalColor;
+    m.material.color.setRGB(c.r, c.g, c.b);
+    syncParamsToUI();
+    updateSelectionBox();
+}
+
+function toggleWireframe() {
+    isWire = !isWire;
+    document.getElementById('btn-wire').classList.toggle('btn-active', isWire);
+    baseGeometries.forEach(mesh => {
+        if (isWire) {
+            mesh.userData.origMat = mesh.material;
+            mesh.material = materialWire;
+        } else {
+            mesh.material = mesh.userData.origMat || materialSolid;
+        }
+    });
+    if (!isWire && selectedMesh) {
+        selectedMesh.material.emissive.setHex(0x0ea5e9);
+        selectedMesh.material.emissiveIntensity = 0.3;
+        const c = selectedMesh.material.color;
+        selectedMesh.material.color.setRGB(c.r, c.g, c.b);
+    }
+}
+
+function getIntersects(e, objects = baseGeometries) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    return raycaster.intersectObjects(objects, false);
+}
+
+function startDrag(e) {
+    if (!selectedMesh) return;
+    const hits = getIntersects(e, [selectedMesh]);
+    if (hits.length === 0) return;
+    
+    
+    isDragging = true;
+    controls.enabled = false;
+    document.body.classList.add('dragging');
+    
+    const normal = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+    dragPlane.setFromNormalAndCoplanarPoint(normal, selectedMesh.position);
+    
+    raycaster.ray.intersectPlane(dragPlane, dragIntersection);
+    dragOffset.subVectors(selectedMesh.position, dragIntersection);
+}
+
+function onDrag(e) {
+    if (!isDragging || !selectedMesh) return;
+    raycaster.setFromCamera(mouse, camera);
+    if (raycaster.ray.intersectPlane(dragPlane, dragIntersection)) {
+        selectedMesh.position.copy(dragIntersection).add(dragOffset);
+        syncParamsToUI();
+        updateSelectionBox();
+    }
+}
+
+function endDrag() {
+    if (!isDragging) return;
+    isDragging = false;
+    controls.enabled = true;
+    document.body.classList.remove('dragging');
+}
+
+
+
+// Lightweight logger (serial monitor was removed with the simulator)
+function logSerial(msg) {
+    console.log(String(msg).replace(/\n$/, ''));
+}
+
+
+// ========== STL EXPORT ==========
+// Build a binary STL ArrayBuffer from a list of meshes, baking each mesh's local
+// transform into world space so positions / rotations / scales are preserved.
+function meshesToBinarySTL(meshes) {
+    const v3 = new THREE.Vector3();
+    const triangles = [];
+
+    const addMesh = (mesh) => {
+        const geom = mesh.geometry;
+        const posAttr = geom.attributes.position;
+        const indexAttr = geom.index;
+        mesh.updateMatrix();
+        const matrix = mesh.matrix;
+
+        const addTriangle = (a, b, c) => {
+            v3.fromBufferAttribute(posAttr, a); v3.applyMatrix4(matrix);
+            const ax = v3.x, ay = v3.y, az = v3.z;
+            v3.fromBufferAttribute(posAttr, b); v3.applyMatrix4(matrix);
+            const bx = v3.x, by = v3.y, bz = v3.z;
+            v3.fromBufferAttribute(posAttr, c); v3.applyMatrix4(matrix);
+            const cx = v3.x, cy = v3.y, cz = v3.z;
+            const abx = bx - ax, aby = by - ay, abz = bz - az;
+            const acx = cx - ax, acy = cy - ay, acz = cz - az;
+            let nx = aby * acz - abz * acy;
+            let ny = abz * acx - abx * acz;
+            let nz = abx * acy - aby * acx;
+            const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+            if (len > 0) { nx /= len; ny /= len; nz /= len; }
+            triangles.push({ nx, ny, nz, ax, ay, az, bx, by, bz, cx, cy, cz });
+        };
+
+        if (indexAttr) {
+            for (let i = 0; i < indexAttr.count; i += 3) addTriangle(indexAttr.getX(i), indexAttr.getX(i + 1), indexAttr.getX(i + 2));
+        } else {
+            for (let i = 0; i < posAttr.count; i += 3) addTriangle(i, i + 1, i + 2);
+        }
+    };
+
+    meshes.forEach(addMesh);
+
+    const triCount = triangles.length;
+    const buffer = new ArrayBuffer(84 + triCount * 50);
+    const view = new DataView(buffer);
+    for (let i = 0; i < 80; i++) view.setUint8(i, 0);   // 80-byte header (empty)
+    view.setUint32(80, triCount, true);                  // triangle count
+    let offset = 84;
+    for (const t of triangles) {
+        view.setFloat32(offset, t.nx, true); offset += 4;
+        view.setFloat32(offset, t.ny, true); offset += 4;
+        view.setFloat32(offset, t.nz, true); offset += 4;
+        view.setFloat32(offset, t.ax, true); offset += 4;
+        view.setFloat32(offset, t.ay, true); offset += 4;
+        view.setFloat32(offset, t.az, true); offset += 4;
+        view.setFloat32(offset, t.bx, true); offset += 4;
+        view.setFloat32(offset, t.by, true); offset += 4;
+        view.setFloat32(offset, t.bz, true); offset += 4;
+        view.setFloat32(offset, t.cx, true); offset += 4;
+        view.setFloat32(offset, t.cy, true); offset += 4;
+        view.setFloat32(offset, t.cz, true); offset += 4;
+        view.setUint16(offset, 0, true); offset += 2;    // attribute byte count
+    }
+    return buffer;
+}
+
+function downloadBuffer(buffer, filename) {
+    const blob = new Blob([buffer], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function exportSelectedToSTL() {
+    if (!selectedMesh) return;
+    const btn = document.getElementById('btn-download-part');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Exporting...';
+    btn.disabled = true;
+    try {
+        const buffer = meshesToBinarySTL([selectedMesh]);
+        const baseName = (lastUploadedName || 'part').replace(/\.[^.]+$/, '');
+        const filename = `${baseName}_part${selectedMesh.userData.index + 1}.stl`;
+        downloadBuffer(buffer, filename);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        logSerial('// Exported part STL: ' + filename + '\n');
+    } catch (err) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        document.getElementById('error-msg').textContent = 'STL export error: ' + err.message;
+        document.getElementById('error-toast').classList.remove('hidden');
+    }
+}
+
+// Merge ALL parts into a single STL and hand the buffer back to the host app
+// (browser-side JSCAD -> STL conversion for the app's "Download STL" button).
+function exportAllToParent(name) {
+    try {
+        if (!baseGeometries.length) return false;
+        const buffer = meshesToBinarySTL(baseGeometries);
+        const filename = name || (lastUploadedName || 'model').replace(/\.[^.]+$/, '') + '.stl';
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'stl-exported', buffer, name: filename }, '*', [buffer]);
+        }
+        logSerial('// Exported full STL: ' + filename + ' (' + baseGeometries.length + ' parts)\n');
+        return true;
+    } catch (err) {
+        document.getElementById('error-msg').textContent = 'STL export error: ' + err.message;
+        document.getElementById('error-toast').classList.remove('hidden');
+        return false;
+    }
+}
+
+// Event listeners
+renderer.domElement.addEventListener('pointermove', e => {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    if (isDragging) {
+        onDrag(e);
+    } else {
+        const hits = getIntersects(e);
+        renderer.domElement.style.cursor = hits.length > 0 ? 'pointer' : 'default';
+    }
+});
+
+renderer.domElement.addEventListener('pointerdown', e => {
+    const hits = getIntersects(e);
+    if (hits.length > 0) {
+        const hitMesh = hits[0].object;
+        if (selectedMesh === hitMesh) {
+            startDrag(e);
+        } else {
+            selectMesh(hitMesh);
+        }
+    } else {
+        deselect();
+    }
+});
+
+renderer.domElement.addEventListener('pointerup', endDrag);
+
+// When embedded in the app the model comes from the generation, so the manual
+// upload / drag-drop controls don't belong here — hide and disable them.
+const EMBEDDED = window.self !== window.top;
+if (EMBEDDED) {
+    ['upload-control', 'upload-divider'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+}
+
+document.getElementById('file-input').addEventListener('change', e => {
+    if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+const dropZone = document.getElementById('drop-zone');
+window.addEventListener('dragover', e => { if (EMBEDDED) return; e.preventDefault(); dropZone.classList.add('active'); });
+window.addEventListener('dragleave', e => { if (EMBEDDED) return; if (e.relatedTarget === null) dropZone.classList.remove('active'); });
+window.addEventListener('drop', e => {
+    if (EMBEDDED) return;
+    e.preventDefault();
+    dropZone.classList.remove('active');
+    if (e.dataTransfer.files.length > 0) {
+        const f = e.dataTransfer.files[0];
+        loadFile(f);
+    }
+});
+
+document.getElementById('explode').addEventListener('input', e => {
+    explodeVal = parseInt(e.target.value);
+    document.getElementById('explode-val').textContent = explodeVal + '%';
+    updateExplode();
+});
+
+document.getElementById('btn-wire').addEventListener('click', toggleWireframe);
+document.getElementById('btn-rotate').addEventListener('click', () => {
+    autoRotate = !autoRotate;
+    document.getElementById('btn-rotate').classList.toggle('btn-active', autoRotate);
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+    const box = new THREE.Box3().setFromObject(modelGroup);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const dist = Math.max(size.x, size.y, size.z) * 1.8;
+    camera.position.set(center.x + dist, center.y + dist * 0.7, center.z + dist);
+    controls.target.copy(center);
+    controls.update();
+});
+document.getElementById('btn-deselect').addEventListener('click', deselect);
+document.getElementById('btn-reset-part').addEventListener('click', resetPart);
+
+// Per-part STL download
+document.getElementById('btn-download-part').addEventListener('click', exportSelectedToSTL);
+
+
+['param-color', 'pos-x', 'pos-y', 'pos-z', 'rot-x', 'rot-y', 'rot-z', 'scale-x', 'scale-y', 'scale-z'].forEach(id => {
+    document.getElementById(id).addEventListener('input', applyParamsFromUI);
+});
+
+
+controls.addEventListener('change', () => {
+    const p = camera.position;
+    document.getElementById('cam-info').textContent = `${p.x|0}, ${p.y|0}, ${p.z|0}`;
+});
+
+window.toggleFullscreen = function() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+};
+
+const clock = new THREE.Clock();
+function animate() {
+    requestAnimationFrame(animate);
+    if (autoRotate && modelGroup.children.length > 0 && !selectedMesh && !isDragging) {
+        modelGroup.rotation.y = Math.sin(clock.elapsedTime * 0.15) * 0.3;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+}
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ===== Embedding bridge: receive models from the parent app =====
+async function loadSTLFromUrl(url, name) {
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const buf = await res.arrayBuffer();
+        loadSTLBuffer(buf, name || 'model.stl');
+    } catch (err) {
+        document.getElementById('error-msg').textContent = 'Model fetch error: ' + err.message;
+        document.getElementById('error-toast').classList.remove('hidden');
+    }
+}
+function ackParent() { try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'model-loaded', parts: baseGeometries.length }, '*'); } catch (e) {} }
+window.addEventListener('message', (e) => {
+    const msg = e.data || {};
+    if (msg.type === 'load-stl-buffer' && msg.buffer) { loadSTLBuffer(msg.buffer, msg.name); ackParent(); }
+    else if (msg.type === 'load-stl-url' && msg.url) { loadSTLFromUrl(msg.url, msg.name).then(ackParent); }
+    else if (msg.type === 'load-jscad-text' && msg.text) { loadJSCADText(msg.text, msg.name).then(ackParent); }
+    else if (msg.type === 'export-stl') { exportAllToParent(msg.name); }
+});
+// Tell the parent we're ready to receive a model
+try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'viewer-ready' }, '*'); } catch (e) {}
+
+animate();
+</script>
+</body>
+</html>

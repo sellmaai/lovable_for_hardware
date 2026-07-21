@@ -16,6 +16,36 @@ function needsSsl(url) {
   return !/localhost|127\.0\.0\.1/.test(url);
 }
 
+// Find the Postgres connection string. Handles plain DATABASE_URL / POSTGRES_URL
+// and the prefixed names that Vercel's Neon/Postgres integration injects
+// (e.g. STORAGE_POSTGRES_URL, MYDB_DATABASE_URL). Prefers a pooled URL.
+function resolveConnectionString() {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  if (process.env.POSTGRES_URL) return process.env.POSTGRES_URL;
+
+  const looksPooled = (k) => !/UNPOOLED|NON_?POOL|PRISMA/i.test(k);
+  const keys = Object.keys(process.env);
+
+  // Prefer *_POSTGRES_URL, then *_DATABASE_URL, pooled variants first.
+  const named = keys
+    .filter((k) => /(^|_)(POSTGRES|DATABASE)_URL$/.test(k))
+    .sort((a, b) => {
+      const rank = (k) => (looksPooled(k) ? 0 : 10) + (/POSTGRES_URL$/.test(k) ? 0 : 1);
+      return rank(a) - rank(b);
+    });
+  for (const k of named) {
+    const v = process.env[k];
+    if (v && /^postgres(ql)?:\/\//i.test(v)) return v;
+  }
+
+  // Last resort: any env value that is a postgres connection string.
+  for (const k of keys) {
+    const v = process.env[k];
+    if (typeof v === 'string' && /^postgres(ql)?:\/\//i.test(v) && looksPooled(k)) return v;
+  }
+  return null;
+}
+
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -68,7 +98,7 @@ async function migrate(db) {
 }
 
 async function build() {
-  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  const url = resolveConnectionString();
   let db;
   if (url) {
     const { Pool } = require('pg');
